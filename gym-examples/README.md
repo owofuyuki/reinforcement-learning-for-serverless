@@ -1,11 +1,9 @@
-This repository is no longer maintained, as Gym is not longer maintained and all future maintenance of it will occur in the replacing [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) library. You can contribute Gymnasium examples to the Gymnasium repository and docs directly if you would like to. If you'd like to learn more about the transition from Gym to Gymnasium, you can read more about it [here](https://farama.org/Announcing-The-Farama-Foundation).
-
-# Gym Examples
-Some simple examples of Gym environments and wrappers.
-For some explanations of these examples, see the [Gym documentation](https://gymnasium.farama.org).
+# Gymnasium Examples
+Some simple examples of Gymnasium environments and wrappers.
+For some explanations of these examples, see the [Gymnasium documentation](https://gymnasium.farama.org).
 
 ### Environments
-This repository hosts the examples that are shown [on the environment creation documentation](https://gymnasium.farama.org/tutorials/environment_creation/).
+This repository hosts the examples that are shown [on the environment creation documentation](https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/).
 - `GridWorldEnv`: Simplistic implementation of gridworld environment
 
 ### Wrappers
@@ -22,3 +20,14 @@ If you would like to contribute, follow these steps:
 - Set up pre-commit via `pre-commit install`
 
 PRs may require accompanying PRs in [the documentation repo](https://github.com/Farama-Foundation/Gymnasium/tree/main/docs).
+
+
+## Installation
+
+To install your new environment, run the following commands:
+
+```{shell}
+cd gym-template
+pip install -e .
+```
+

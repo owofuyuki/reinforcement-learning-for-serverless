@@ -1,8 +1,12 @@
+from enum import Enum
 import numpy as np
 
 import gymnasium as gym
 from gymnasium import spaces
 
+
+class Actions(Enum):
+    
 
 class NetworkGridEnv(gym.Env):
     metadata = {}
