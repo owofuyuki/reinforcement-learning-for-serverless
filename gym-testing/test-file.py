@@ -14,4 +14,17 @@ for i in range(25):
             setattr(Actions, f"ACTION_{i+1}_{j}", "Turning OFF and shift load")
         
 action = Actions.ACTION_1_0
+
+action = 118
+bs_actions = [action % 17 if i == (action // 17) else 16 for i in range(25)]
+
+prev_bs = 1, 2
+bs_row, bs_col = 2, 2
+
+action = action % 17
+bs_left   = (action & 0b1000) >> 3
+bs_top    = (action & 0b0100) >> 2
+bs_right  = (action & 0b0010) >> 1
+bs_bottom = (action & 0b0001)
+
 print(action)
