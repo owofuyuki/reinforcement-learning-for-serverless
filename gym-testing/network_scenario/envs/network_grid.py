@@ -46,6 +46,8 @@ class NetworkGridEnv(gym.Env):
     def _get_reward(self):
         # Calculate traffic loss
         loss = np.sum(self._demand_matrix) - np.sum(self._state_matrix)
+        
+        # Calculate energy consumption
         energy_csm = []
         for i in range(self.size):
             for j in range(self.size):
@@ -179,10 +181,6 @@ class NetworkGridEnv(gym.Env):
                 elif (bs_row == 0):
                     shift_load = bs_left * self.active_bs[0, bs_col - 1] + bs_right * self.active_bs[0, bs_col + 1] + bs_bottom * self.active_bs[1, bs_col]
                     if (shift_load != 0):
-                        for dr, dc in [(0, -1), (0, 1), (1, 0)]:
-                            if (self.active_bs[dr, bs_col + dc] != 0):
-                                self._state_matrix[dr, bs_col + dc] += self._state_matrix[bs_row, bs_col]
-                    else:
                         for dr, dc in [(0, -1), (0, 1), (1, 0)]:
                             if (self.active_bs[dr, bs_col + dc] != 0):
                                 self._state_matrix[dr, bs_col + dc] += (self._state_matrix[bs_row, bs_col] / shift_load)
