@@ -82,7 +82,7 @@ class NetworkGridEnv(gym.Env):
                 else:
                     energy_csm.append(75)
         return {
-            "traffic_coverage": np.sum(self._demand_matrix) / np.sum(self._state_matrix) * 100,
+            "traffic_coverage": np.sum(self._state_matrix) / np.sum(self._demand_matrix) * 100,
             "energy_saving": (np.sum(all_on_energy_csm) - np.sum(energy_csm)) / np.sum(all_on_energy_csm) * 100
         }
     
@@ -119,9 +119,12 @@ class NetworkGridEnv(gym.Env):
         '''
         if ((bs_row, bs_col) == self.prev_bs):
         # Check if the current BS is the same as the previous BS
+            terminated = self.current_time >= self.max_steps
+            truncated = False
+            reward = self._get_reward()
             observation = self._get_obs()
-            info = self._get_info()
-            return observation, info
+            info = self._get_info()  
+            return observation, reward, terminated, truncated, info
         
         if (bs_action == 0):
             # Action 0: BS turning ON
@@ -130,9 +133,12 @@ class NetworkGridEnv(gym.Env):
             # Action 1-15: Bs turning OFF and shifting loads
             if (self.active_bs[bs_row, bs_col] == 0):
                 # Do not turn off an already deactivated BS
+                terminated = self.current_time >= self.max_steps
+                truncated = False
+                reward = self._get_reward()
                 observation = self._get_obs()
-                info = self._get_info()
-                return observation, info
+                info = self._get_info()  
+                return observation, reward, terminated, truncated, info
             else:
                 self.active_bs[bs_row, bs_col] = 0
                 self._state_matrix[bs_row, bs_col] = 0
@@ -259,7 +265,7 @@ if __name__ == "__main__":
     observation, info = network_env.reset()
     
     # Perform some random actions to see the state of BSs and their loads
-    for _ in range(7):
+    for _ in range(16):
         print("----------------------------------------")
         action = network_env.action_space.sample()  # Random action
         print("Action:", action)
