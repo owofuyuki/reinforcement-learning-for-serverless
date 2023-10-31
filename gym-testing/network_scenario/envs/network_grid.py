@@ -33,7 +33,8 @@ class NetworkGridEnv(gym.Env):
         '''
         Initialize the state and other variables
         '''
-        self.current_time = 0
+        self.current_time = 0  # Start at time 0
+        self.max_steps = 24  # 24 steps for 24 hours in a day
         self.active_bs = np.ones((self.size, self.size), dtype=bool)
         self.prev_bs = (-1, -1)  # Set an initial value
         self._demand_matrix = np.full((self.size, self.size), 0.1)
@@ -43,10 +44,24 @@ class NetworkGridEnv(gym.Env):
         self.render_mode = render_mode
         
     def _get_reward(self):
+        # Calculate traffic loss
+        loss = np.sum(self._demand_matrix) - np.sum(self._state_matrix)
         energy_csm = []
+        for i in range(self.size):
+            for j in range(self.size):
+                if (self._state_matrix[i, j] > 1):
+                    self._state_matrix[i, j] = 1
+                    energy_csm.append(130 + 4.7 * 20)
+                elif (0 < self._state_matrix[i, j] <= 1):
+                    energy_csm.append(130 + 4.7 * 20 * self._state_matrix[i, j])
+                else:
+                    energy_csm.append(75)
         
+        max_energy_csm = np.max(energy_csm)
+        reward = - 100 * loss
+        for i in range(self.num_bs):
+            reward += (max_energy_csm - energy_csm[i])
         
-        traffic_loss
         return reward
         
     def _get_obs(self):
@@ -54,8 +69,8 @@ class NetworkGridEnv(gym.Env):
     
     def _get_info(self):
         return {
-            "traffic_coverage",
-            "energy_saving"
+            "traffic_coverage": np.sum(self._demand_matrix) / np.sum(self._state_matrix) * 100,
+            "energy_saving": 1
         }
     
     def reset(self, seed=None, options=None):
@@ -159,16 +174,14 @@ class NetworkGridEnv(gym.Env):
         '''
         Increment the time step
         '''
-        self.current_time += 1
+        self.current_time += 1        
         
         '''
-        Calculate the reward
+        An episode is done after 24 steps
         '''
-        
-        
-        '''
-        An episode is done if ...
-        '''
+        terminated = self.current_time >= self.max_steps
+        truncated = False
+        reward = self._get_reward()
         observation = self._get_obs()
         info = self._get_info()
         '''
@@ -176,14 +189,17 @@ class NetworkGridEnv(gym.Env):
         '''
         self.prev_bs = bs_row, bs_col
         
-        return observation, info
+        return observation, reward, terminated, truncated, info
         
     
     def render(self):
         '''
-        Implement a visualization method if needed
+        Implement a visualization method (if needed)
         '''
         pass
     
     def close(self):
+        '''
+        Implement the close function to clean up (if needed)
+        '''
         pass
