@@ -67,9 +67,21 @@ class NetworkGridEnv(gym.Env):
         return {"traffic_demand": self._demand_matrix, "traffic_state": self._state_matrix}
     
     def _get_info(self):
+        energy_csm = []
+        all_on_energy_csm = []
+        for i in range(self.size):
+            for j in range(self.size):
+                if (self._state_matrix[i, j] > 1):
+                    energy_csm.append(130 + 4.7 * 20)
+                    all_on_energy_csm.append(130 + 4.7 * 20)
+                elif (0 < self._state_matrix[i, j] <= 1):
+                    energy_csm.append(130 + 4.7 * 20 * self._state_matrix[i, j])
+                    all_on_energy_csm.append(130 + 4.7 * 20 * self._state_matrix[i, j])
+                else:
+                    energy_csm.append(75)
         return {
             "traffic_coverage": np.sum(self._demand_matrix) / np.sum(self._state_matrix) * 100,
-            "energy_saving": 1
+            "energy_saving": (np.sum(all_on_energy_csm) - np.sum(energy_csm)) / np.sum(all_on_energy_csm) * 100
         }
     
     def reset(self, seed=None, options=None):
@@ -208,7 +220,7 @@ class NetworkGridEnv(gym.Env):
         else: pass  # Action 16: Do nothing
         
         '''
-        Increment the time step
+        Increment the time step 
         '''
         self.current_time += 1        
         

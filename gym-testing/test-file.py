@@ -1,5 +1,5 @@
 from enum import Enum
-
+import numpy as np
 
 class Actions(Enum):
    pass
@@ -27,4 +27,9 @@ bs_top    = (action & 0b0100) >> 2
 bs_right  = (action & 0b0010) >> 1
 bs_bottom = (action & 0b0001)
 
-print(action)
+arr = []
+
+for i in range(25):
+    arr.append(i)
+    
+print(np.sum(arr))
