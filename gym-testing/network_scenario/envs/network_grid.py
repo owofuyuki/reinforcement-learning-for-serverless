@@ -15,7 +15,6 @@ class NetworkGridEnv(gym.Env):
         self.size = size  # The size of the square grid
         self.num_bs = self.size ** 2
         self.num_actions = self.num_bs * 17
-        self.current_time = 0  # Initial time
 
         '''
         - Observations (state space) are dictionaries with 2 traffic matrices "traffic_demand" and "traffic_state".
