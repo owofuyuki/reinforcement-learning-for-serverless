@@ -199,18 +199,69 @@ class NetworkGridEnv(gym.Env):
 
                 elif (bs_row == corner_idx):
                     shift_load = bs_left * self.active_bs[corner_idx, bs_col - 1] + bs_right * self.active_bs[corner_idx, bs_col + 1] + bs_top * self.active_bs[corner_idx - 1, bs_col]
-                    for dr, dc in [(0, -1), (0, 1), (-1, 0)]:
-                        self._state_matrix[corner_idx + dr, bs_col + dc] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                    if (shift_load != 0):
+                        if (self.active_bs[corner_idx, bs_col - 1] == 0):
+                            if (self.active_bs[corner_idx, bs_col + 1] == 0): self._state_matrix[corner_idx - 1, bs_col] += self._state_matrix[bs_row, bs_col]
+                            elif (self.active_bs[corner_idx - 1, bs_col] == 0): self._state_matrix[corner_idx, bs_col + 1] += self._state_matrix[bs_row, bs_col]
+                            else:
+                                self._state_matrix[corner_idx - 1, bs_col] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                                self._state_matrix[corner_idx, bs_col + 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                        else:
+                            if (self.active_bs[corner_idx, bs_col + 1] == 0):
+                                if (self.active_bs[corner_idx - 1, bs_col] == 0): self._state_matrix[corner_idx, bs_col - 1] += self._state_matrix[bs_row, bs_col]
+                                else:
+                                    self._state_matrix[corner_idx, bs_col - 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                                    self._state_matrix[corner_idx - 1, bs_col] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                            elif (self.active_bs[corner_idx - 1, bs_col] == 0):
+                                self._state_matrix[corner_idx, bs_col - 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                                self._state_matrix[corner_idx, bs_col + 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                            else:           
+                                for dr, dc in [(0, -1), (0, 1), (-1, 0)]:
+                                    self._state_matrix[corner_idx + dr, bs_col + dc] += (self._state_matrix[bs_row, bs_col] / shift_load)
 
                 elif (bs_col == 0):
                     shift_load = bs_right * self.active_bs[bs_row, 1] + bs_top * self.active_bs[bs_row - 1, 0] + bs_bottom * self.active_bs[bs_row + 1, 0]
-                    for dr, dc in [(-1, 0), (1, 0), (0, 1)]:
-                        self._state_matrix[bs_row + dr, dc] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                    if (shift_load != 0):
+                        if ():
+                            if ():
+                            elif ():
+                            else:
+                                
+                                
+                        else:
+                            if ():
+                                if ():
+                                else:
+                                    
+                                    
+                            elif ():
+                                
+                                
+                            else:            
+                                for dr, dc in [(-1, 0), (1, 0), (0, 1)]:
+                                    self._state_matrix[bs_row + dr, dc] += (self._state_matrix[bs_row, bs_col] / shift_load)
 
                 elif (bs_col == corner_idx):
                     shift_load = bs_left * self.active_bs[bs_row, corner_idx - 1] + bs_top * self.active_bs[bs_row - 1, corner_idx] + bs_bottom * self.active_bs[bs_row + 1, corner_idx]
-                    for dr, dc in [(-1, 0), (1, 0), (0, -1)]:
-                        self._state_matrix[bs_row + dr, corner_idx + dc] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                    if (shift_load != 0):
+                        if ():
+                            if ():
+                            elif ():
+                            else:
+                                
+                                
+                        else:
+                            if ():
+                                if ():
+                                else:
+                                    
+                                    
+                            elif ():
+                                
+                                
+                            else:            
+                                for dr, dc in [(-1, 0), (1, 0), (0, -1)]:
+                                    self._state_matrix[bs_row + dr, corner_idx + dc] += (self._state_matrix[bs_row, bs_col] / shift_load)
 
                 else:
                     shift_load = bs_left * self.active_bs[bs_row, bs_col - 1] + bs_top * self.active_bs[bs_row - 1, bs_col] + bs_right * self.active_bs[bs_row, bs_col + 1] + bs_bottom * self.active_bs[bs_row + 1, bs_col]
