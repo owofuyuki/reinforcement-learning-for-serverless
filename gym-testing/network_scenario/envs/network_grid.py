@@ -302,3 +302,18 @@ class NetworkGridEnv(gym.Env):
         Implement the close function to clean up (if needed)
         '''
         pass
+
+
+if __name__ == "__main__":
+    obj = NetworkGridEnv()
+    print(obj.action_space)
+    print(obj.observation_space)
+
+    obj.reset()
+    print(obj._get_obs())
+    print(obj._get_info())
+
+    observation, reward, terminated, truncated, info = obj.step()
+    print(reward)
+    print(obj._get_obs())
+    print(obj._get_info())
