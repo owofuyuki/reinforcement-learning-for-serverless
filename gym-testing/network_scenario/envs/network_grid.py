@@ -8,6 +8,7 @@ class NetworkGridEnv(gym.Env):
     metadata = {}
 
     def __init__(self, render_mode=None, size=5):
+        super(NetworkGridEnv, self).__init__()
         '''
         Define environment parameters
         '''
@@ -241,7 +242,10 @@ class NetworkGridEnv(gym.Env):
         '''
         Implement a visualization method (if needed)
         '''
-        pass
+        info = self._get_info()
+        print("Performance Metrics:")
+        print("- Traffic Coverage: {:.2f}%".format(info["traffic_coverage"]))
+        print("- Energy Saving: {:.2f}%".format(info["energy_saving"]))
     
     def close(self):
         '''
@@ -251,15 +255,17 @@ class NetworkGridEnv(gym.Env):
 
 
 if __name__ == "__main__":
-    obj = NetworkGridEnv()
-    print(obj.action_space)
-    print(obj.observation_space)
-
-    obj.reset()
-    print(obj._get_obs())
-    print(obj._get_info())
-
-    observation, reward, terminated, truncated, info = obj.step()
-    print(reward)
-    print(obj._get_obs())
-    print(obj._get_info())
+    # Create the network grid environment
+    network_env = NetworkGridEnv()
+    
+    # Reset the environment to the initial state
+    observation, info = network_env.reset()
+    
+    # Perform some random actions to see the state of BSs and their loads
+    for _ in range(7):
+        print("----------------------------------------")
+        action = network_env.action_space.sample()  # Random action
+        print("Action:", action)
+        observation, reward, terminated, truncated, info = network_env.step(action)
+        print(f"Reward: {reward}, Done: {terminated}")
+        network_env.render()
