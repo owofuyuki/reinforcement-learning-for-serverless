@@ -272,3 +272,5 @@ if __name__ == "__main__":
         observation, reward, terminated, truncated, info = network_env.step(action)
         print(f"Reward: {reward}, Done: {terminated}")
         network_env.render()
+        
+    print("----------------------------------------")
