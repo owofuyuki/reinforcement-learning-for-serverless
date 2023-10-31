@@ -105,7 +105,9 @@ class NetworkGridEnv(gym.Env):
         '''
         if ((bs_row, bs_col) == self.prev_bs):
         # Check if the current BS is the same as the previous BS
-            return  ###
+            observation = self._get_obs()
+            info = self._get_info()
+            return observation, info
         
         if (bs_action == 0):
             # Action 0: BS turning ON
@@ -114,7 +116,9 @@ class NetworkGridEnv(gym.Env):
             # Action 1-15: Bs turning OFF and shifting loads
             if (self.active_bs[bs_row, bs_col] == 0):
                 # Do not turn off an already deactivated BS
-                return ###
+                observation = self._get_obs()
+                info = self._get_info()
+                return observation, info
             else:
                 self.active_bs[bs_row, bs_col] = 0
                 self._state_matrix[bs_row, bs_col] = 0
@@ -122,26 +126,42 @@ class NetworkGridEnv(gym.Env):
                 bs_right, bs_bottom = (bs_action & 0b0010) >> 1, (bs_action & 0b0001)
                 corner_idx = self.size - 1
                 
-                # BSs at edge may have less than 4 neighbors
+                # BSs at edge may have less than 4 neighbors, don't share load to OFF BS
                 if ((bs_row, bs_col) == (0, 0)):
-                    shift_load = bs_right + bs_bottom
-                    self._state_matrix[0, 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
-                    self._state_matrix[1, 0] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                    shift_load = bs_right * self.active_bs[0, 1] + bs_bottom * self.active_bs[1, 0]
+                    if (shift_load != 0):
+                        if (self.active_bs[0, 1] == 0): self._state_matrix[1, 0] += self._state_matrix[bs_row, bs_col]
+                        elif (self.active_bs[1, 0] == 0): self._state_matrix[0, 1] += self._state_matrix[bs_row, bs_col]
+                        else:
+                            self._state_matrix[0, 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                            self._state_matrix[1, 0] += (self._state_matrix[bs_row, bs_col] / shift_load)
                     
                 elif ((bs_row, bs_col) == (0, corner_idx)):
-                    shift_load = bs_left + bs_bottom
-                    self._state_matrix[0, corner_idx - 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
-                    self._state_matrix[1, corner_idx] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                    shift_load = bs_left * self.active_bs[0, corner_idx - 1] + bs_bottom * self.active_bs[1, corner_idx]
+                    if (shift_load != 0):
+                        if (self.active_bs[0, corner_idx - 1] == 0): self._state_matrix[1, corner_idx] += self._state_matrix[bs_row, bs_col]
+                        elif (self.active_bs[1, corner_idx] == 0): self._state_matrix[0, corner_idx - 1] += self._state_matrix[bs_row, bs_col]
+                        else:
+                            self._state_matrix[0, corner_idx - 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                            self._state_matrix[1, corner_idx] += (self._state_matrix[bs_row, bs_col] / shift_load)
                     
                 elif ((bs_row, bs_col) == (corner_idx, 0)):
-                    shift_load = bs_top + bs_right
-                    self._state_matrix[corner_idx - 1, 0] += (self._state_matrix[bs_row, bs_col] / shift_load)
-                    self._state_matrix[1, corner_idx] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                    shift_load = bs_top * self.active_bs[corner_idx - 1, 0] + bs_right * self.active_bs[corner_idx, 1]
+                    if (shift_load != 0):
+                        if (self.active_bs[corner_idx - 1, 0] == 0): self._state_matrix[corner_idx, 1] += self._state_matrix[bs_row, bs_col]
+                        elif (self.active_bs[corner_idx, 1] == 0): self._state_matrix[corner_idx - 1, 0] += self._state_matrix[bs_row, bs_col]
+                        else:
+                            self._state_matrix[corner_idx - 1, 0] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                            self._state_matrix[corner_idx, 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
                     
                 elif ((bs_row, bs_col) == (corner_idx, corner_idx)):
-                    shift_load = bs_top + bs_left
-                    self._state_matrix[corner_idx - 1, corner_idx] += (self._state_matrix[bs_row, bs_col] / shift_load)
-                    self._state_matrix[corner_idx, corner_idx - 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                    shift_load = bs_top * self.active_bs[corner_idx - 1, corner_idx] + bs_left * self.active_bs[corner_idx, corner_idx - 1]
+                    if (shift_load != 0):
+                        if (self.active_bs[corner_idx - 1, corner_idx] == 0): self._state_matrix[corner_idx, corner_idx - 1] += self._state_matrix[bs_row, bs_col]
+                        elif (self.active_bs[corner_idx, corner_idx - 1] == 0): self._state_matrix[corner_idx - 1, corner_idx] += self._state_matrix[bs_row, bs_col]
+                        else:
+                            self._state_matrix[corner_idx - 1, corner_idx] += (self._state_matrix[bs_row, bs_col] / shift_load)
+                            self._state_matrix[corner_idx, corner_idx - 1] += (self._state_matrix[bs_row, bs_col] / shift_load)
                     
                 elif (bs_row == 0):
                     shift_load = bs_left + bs_right + bs_bottom
