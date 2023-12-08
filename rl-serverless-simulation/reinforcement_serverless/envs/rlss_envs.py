@@ -19,13 +19,10 @@ class ServerlessEnv(gym.Env):
         - Observations (state space) are dictionaries with 2 traffic matrices "traffic_demand" and "traffic_state".
         - .
         """
-        self.observation_space = spaces.Dict(
-            {
-                "traffic_demand": spaces.Box(
-                    low=0, high=256, shape=(self.size, 5), dtype=np.int
-                ),
-            }
-        )
+        self.observation_space = spaces.Dict({
+            "container_quantity": spaces.Box(low=0, high=256, shape=(self.size, self.num_states), dtype=np.int),
+            "container_state": spaces.Box(low=0, high=256, shape=(self.size, self.num_states), dtype=np.int),
+        })
 
         """
         Initialize the state and other variables
