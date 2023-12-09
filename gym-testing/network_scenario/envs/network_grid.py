@@ -266,12 +266,14 @@ if __name__ == "__main__":
     observation, info = network_env.reset()
     
     # Perform some random actions to see the state of BSs and their loads
-    for _ in range(16):
+    while (True):
         print("----------------------------------------")
         action = network_env.action_space.sample()  # Random action
         print("Action:", action)
         observation, reward, terminated, truncated, info = network_env.step(action)
         print(f"Reward: {reward}, Done: {terminated}")
         network_env.render()
-        
-    print("----------------------------------------")
+        if terminated: 
+            print("----------------------------------------")
+            break
+        else: continue
