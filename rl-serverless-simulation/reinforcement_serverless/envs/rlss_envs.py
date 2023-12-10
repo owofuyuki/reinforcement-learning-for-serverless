@@ -42,16 +42,16 @@ class ServerlessEnv(gym.Env):
         Define observations (state space)
         '''
         self.observation_space = spaces.Dict({
-            "request_quantity":  spaces.Box(low=0, high=self.max_container, shape=(self.size, 1), dtype=np.int8),
-            "remained_resource": spaces.Box(low=0, high=self.max_container, shape=(self.num_resources, 1), dtype=np.int8),
-            "container_traffic": spaces.Box(low=0, high=self.max_container, shape=(self.size, self.num_states), dtype=np.int8),
+            "request_quantity":  spaces.Box(low=0, high=self.max_container, shape=(self.size, 1), dtype=np.int16),
+            "remained_resource": spaces.Box(low=0, high=self.max_container, shape=(self.num_resources, 1), dtype=np.int16),
+            "container_traffic": spaces.Box(low=0, high=self.max_container, shape=(self.size, self.num_states), dtype=np.int16),
         })
         
         '''
         Define action space containing two matrices by combining them into a Tuple space
         '''
-        self._action_coefficient = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int8)
-        self._action_unit = spaces.Box(low=-1, high=1, shape=(self.size, self.num_states), dtype=np.int8)
+        self._action_coefficient = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int16)
+        self._action_unit = spaces.Box(low=-1, high=1, shape=(self.size, self.num_states), dtype=np.int16)
         self.action_space = spaces.Tuple((self._action_coefficient, self._action_unit))
         
         # Set the main diagonal elements of _action_coefficient to be in the range [0, self.max_container] 
@@ -69,11 +69,12 @@ class ServerlessEnv(gym.Env):
         self.current_time = 0  # Start at time 0
         self.timeout = 1000  # Set timeout value = 1000s
         self.limited_ram = 64  # Set limited amount of RAM = 64GB/service
-        self._request_matrix = np.ones((self.size, 1), dtype=bool)
-        self._resource_matrix = np.zeros((self.num_resources, 1), dtype=bool)
+        self._action_matrix = np.zeros((self.size, self.num_states), dtype=np.int16)  # Set an initial value
+        self._request_matrix = np.ones((self.size, 1), dtype=np.int16)
+        self._resource_matrix = np.zeros((self.num_resources, 1), dtype=np.int16)
         self._container_matrix = np.hstack((
             np.random.randint(0, 256, size=(self.size, 1)),
-            np.zeros((self.size, self.num_states-1), dtype=np.int8)
+            np.zeros((self.size, self.num_states-1), dtype=np.int16)
         ))  # Initially the containers are in Null state
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
@@ -137,7 +138,7 @@ class ServerlessEnv(gym.Env):
         self._resource_matrix = np.zeros((self.num_resources, 1), dtype=bool)
         self._container_matrix = np.hstack((
             np.random.randint(0, 256, size=(self.size, 1)),
-            np.zeros((self.size, self.num_states-1), dtype=np.int8)
+            np.zeros((self.size, self.num_states-1), dtype=np.int16)
         ))  # Initially the containers are in Null state
         
         observation = self._get_obs()
@@ -150,7 +151,8 @@ class ServerlessEnv(gym.Env):
         Apply action masking to check the validity of status updates
         '''
         if (self._get_constraints):
-            pass
+            self._action_matrix = action[0] @ action[1]
+            
         else: pass
         
         '''

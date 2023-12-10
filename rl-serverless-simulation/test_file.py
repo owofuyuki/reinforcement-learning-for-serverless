@@ -11,7 +11,7 @@ action = len(Actions)
 n = 5
 result_matrix = np.hstack((
     np.random.randint(0, 256, size=(n, 1)),
-    np.zeros((n, n-1), dtype=np.int8)
+    np.zeros((n, n-1), dtype=np.int16)
 ))
 
 def check():
@@ -38,8 +38,8 @@ class CustomEnvironment(gym.Env):
         '''
         Define action space containing two matrices by combining them into a Tuple space
         '''
-        self._action_coefficient = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int8)
-        self._action_unit = spaces.Box(low=-1, high=1, shape=(self.size, self.num_states), dtype=np.int8)
+        self._action_coefficient = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int16)
+        self._action_unit = spaces.Box(low=-1, high=1, shape=(self.size, self.num_states), dtype=np.int16)
         self.action_space = spaces.Tuple((self._action_coefficient, self._action_unit))
         
         # Set the main diagonal elements of _action_coefficient to be in the range [0, self.max_container] 
@@ -70,6 +70,9 @@ rlss_env = CustomEnvironment(size=3)  # Create an instance of the custom environ
 action = rlss_env.action_space.sample()
 
 # Display the sampled action
-print("Sampled Action:")
+print("Action Coefficient Matrix:")
+print(action[0])
+print("Action Units Matrix:")
 print(action[1])
-
+print("Sampled Action:")
+print(action[0] @ action[1])
