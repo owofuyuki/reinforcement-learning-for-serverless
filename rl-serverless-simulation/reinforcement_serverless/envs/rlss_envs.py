@@ -48,21 +48,20 @@ class ServerlessEnv(gym.Env):
         })
         
         '''
-        Define action space containing two matrices
+        Define action space containing two matrices by combining them into a Tuple space
         '''
-        # Define the diagonal matrix 
-        # and set the main diagonal elements to be in the range [0, self.max_container] 
         self._action_coefficient = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int8)
+        self._action_unit = spaces.Box(low=-1, high=1, shape=(self.size, self.num_states), dtype=np.int8)
+        self.action_space = spaces.Tuple((self._action_coefficient, self._action_unit))
+        
+        # Set the main diagonal elements of _action_coefficient to be in the range [0, self.max_container] 
         np.fill_diagonal(self._action_coefficient.low, 0)
         np.fill_diagonal(self._action_coefficient.high, self.max_container)
         
-        # Define the matrix with elements in the set {-1, 0, 1} 
-        # and set the last column of the custom matrix space to be always zero
-        self._action_unit = spaces.Box(low=-1, high=1, shape=(self.size, 5), dtype=np.int8)
+        # Set the last column of the _action_unit to be always zero
         self._action_unit.low[:, -1] = 0
         self._action_unit.high[:, -1] = 0
-        
-        self.action_space = spaces.Tuple((self._action_coefficient, self._action_unit))  # Combine the two action matrix into a Tuple space
+        self._get_units()
         
         '''
         Initialize the state and other variables
@@ -85,14 +84,11 @@ class ServerlessEnv(gym.Env):
         Define a function to create a random matrix such that the sum of the elements in a row = 0
         '''
         while True:
-            # Generate a random matrix
-            random_matrix = np.random.randint(-1, 2, size=(self.size, 4))
-            # Ensure the row sum is 0
-            row_sums = np.sum(random_matrix, axis=1)
-            if np.all(row_sums == 0):
-                # If row sum is 0, assign the matrix to custom_matrix_space
-                self.custom_matrix_space.low[:, :-1] = random_matrix
-                self.custom_matrix_space.high[:, :-1] = random_matrix
+            random_matrix = np.random.randint(-1, 2, size=(self.size, self.num_states-1))  # Generate a random matrix
+            row_sums = np.sum(random_matrix, axis=1)  # Ensure the row sum is 0
+            if np.all(row_sums == 0):  # If row sum is 0, assign the matrix to _action_unit
+                self._action_unit.low[:, :-1] = random_matrix
+                self._action_unit.high[:, :-1] = random_matrix
                 break
         
 

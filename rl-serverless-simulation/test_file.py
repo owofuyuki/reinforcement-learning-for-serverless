@@ -32,34 +32,33 @@ import numpy as np
 class CustomEnvironment(gym.Env):
     def __init__(self, size=3):
         self.size = size
+        self.max_container = 256
+        self.num_states = 5
         
-        # Define the diagonal matrix of size n x n in the action space
-        self.diagonal_matrix_space = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int32)
-        np.fill_diagonal(self.diagonal_matrix_space.low, 0)
-        np.fill_diagonal(self.diagonal_matrix_space.high, 256)
+        '''
+        Define action space containing two matrices by combining them into a Tuple space
+        '''
+        self._action_coefficient = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int8)
+        self._action_unit = spaces.Box(low=-1, high=1, shape=(self.size, self.num_states), dtype=np.int8)
+        self.action_space = spaces.Tuple((self._action_coefficient, self._action_unit))
         
-        # Define the matrix of size n x 5 with elements in the set {-1, 0, 1} and row sum = 0
-        self.custom_matrix_space = spaces.Box(low=-1, high=1, shape=(self.size, 5), dtype=np.int8)
+        # Set the main diagonal elements of _action_coefficient to be in the range [0, self.max_container] 
+        np.fill_diagonal(self._action_coefficient.low, 0)
+        np.fill_diagonal(self._action_coefficient.high, self.max_container)
         
-        # Set the last column of the custom matrix space to be always zero
-        self.custom_matrix_space.low[:, -1] = 0
-        self.custom_matrix_space.high[:, -1] = 0
+        # Set the last column of the _action_unit to be always zero
+        self._action_unit.low[:, -1] = 0
+        self._action_unit.high[:, -1] = 0
         
         self._generate_valid_custom_matrix()  # Generate a valid custom matrix
         
-        # Combine the two action spaces into a Tuple space
-        self.action_space = spaces.Tuple((self.diagonal_matrix_space, self.custom_matrix_space))
-        
     def _generate_valid_custom_matrix(self):
         while True:
-            # Generate a random matrix
-            random_matrix = np.random.randint(-1, 2, size=(self.size, 4))
-            # Ensure the row sum is 0
-            row_sums = np.sum(random_matrix, axis=1)
-            if np.all(row_sums == 0):
-                # If row sum is 0, assign the matrix to custom_matrix_space
-                self.custom_matrix_space.low[:, :-1] = random_matrix
-                self.custom_matrix_space.high[:, :-1] = random_matrix
+            random_matrix = np.random.randint(-1, 2, size=(self.size, self.num_states-1))  # Generate a random matrix
+            row_sums = np.sum(random_matrix, axis=1)  # Ensure the row sum is 0
+            if np.all(row_sums == 0):  # If row sum is 0, assign the matrix to _action_unit
+                self._action_unit.low[:, :-1] = random_matrix
+                self._action_unit.high[:, :-1] = random_matrix
                 break
         
     # ... (rest of the class methods remain the same)
@@ -72,5 +71,5 @@ action = rlss_env.action_space.sample()
 
 # Display the sampled action
 print("Sampled Action:")
-print(action[0])
+print(action[1])
 
