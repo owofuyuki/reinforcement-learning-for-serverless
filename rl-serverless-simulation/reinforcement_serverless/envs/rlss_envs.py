@@ -10,6 +10,13 @@ Define an index corresponding to the action that changes the container's state:
     - Return to previous state: -1
     - Maintain current status: 0
     - Move to the next state: 1
+    
+Defines symbols in a state machine:
+    - N  = Null
+    - L0 = Cold
+    - L1 = Warm Disk
+    - L2 = Warm CPU
+    - A  = Active
 '''
 class Actions(enum.Enum):
     previous_state = -1   
@@ -17,14 +24,6 @@ class Actions(enum.Enum):
     next_state = 1
 
 
-'''
-Defines symbols in a state machine:
-    N  = Null
-    L0 = Cold
-    L1 = Warm Disk
-    L2 = Warm CPU
-    A  = Active
-'''
 class ServerlessEnv(gym.Env):
     metadata = {}
 
@@ -82,10 +81,16 @@ class ServerlessEnv(gym.Env):
         self.render_mode = render_mode
 
     def _get_reward(self):
+        '''
+        Define reward calculation function
+        '''
         reward = 123456
         return reward      
         
     def _get_obs(self):
+        '''
+        Define a function that returns the values of observation
+        '''
         return {
             "request_quantity": self._request_matrix,
             "remained_resource": self._resource_matrix,
@@ -93,7 +98,9 @@ class ServerlessEnv(gym.Env):
         }
 
     def _get_info(self):
-        
+        '''
+        Defines a function that returns system evaluation parameters
+        '''
         return {
             "energy_consumption": 100,
             "penalty_delay": 200,
@@ -102,7 +109,9 @@ class ServerlessEnv(gym.Env):
         }
         
     def _get_constraints(self):
-        
+        '''
+        Define a function that checks constraint conditions (action masking)
+        '''
         return True
     
     def reset(self, seed=None, options=None):
@@ -127,7 +136,7 @@ class ServerlessEnv(gym.Env):
         Apply action masking to check the validity of status updates
         '''
         if (self._get_constraints):
-            
+            pass
         else: pass
         
         '''
