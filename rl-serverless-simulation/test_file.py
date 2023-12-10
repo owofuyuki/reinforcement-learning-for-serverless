@@ -11,7 +11,7 @@ action = len(Actions)
 n = 5
 result_matrix = np.hstack((
     np.random.randint(0, 256, size=(n, 1)),
-    np.zeros((n, n-1), dtype=np.int)
+    np.zeros((n, n-1), dtype=np.int8)
 ))
 
 def check():
@@ -34,8 +34,9 @@ class CustomEnvironment(gym.Env):
         self.size = size
         
         # Define the diagonal matrix of size n x n in the action space
-        self.diagonal_matrix_space = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int8)
-        # ... (rest of the initialization remains the same)
+        self.diagonal_matrix_space = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int32)
+        np.fill_diagonal(self.diagonal_matrix_space.low, 0)
+        np.fill_diagonal(self.diagonal_matrix_space.high, 256)
         
         # Define the matrix of size n x 5 with elements in the set {-1, 0, 1} and row sum = 0
         self.custom_matrix_space = spaces.Box(low=-1, high=1, shape=(self.size, 5), dtype=np.int8)
@@ -71,5 +72,5 @@ action = rlss_env.action_space.sample()
 
 # Display the sampled action
 print("Sampled Action:")
-print(action[1])
+print(action[0])
 

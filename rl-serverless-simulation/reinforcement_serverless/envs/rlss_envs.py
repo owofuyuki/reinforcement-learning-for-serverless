@@ -79,6 +79,22 @@ class ServerlessEnv(gym.Env):
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
+        
+    def _get_units(self):
+        '''
+        Define a function to create a random matrix such that the sum of the elements in a row = 0
+        '''
+        while True:
+            # Generate a random matrix
+            random_matrix = np.random.randint(-1, 2, size=(self.size, 4))
+            # Ensure the row sum is 0
+            row_sums = np.sum(random_matrix, axis=1)
+            if np.all(row_sums == 0):
+                # If row sum is 0, assign the matrix to custom_matrix_space
+                self.custom_matrix_space.low[:, :-1] = random_matrix
+                self.custom_matrix_space.high[:, :-1] = random_matrix
+                break
+        
 
     def _get_reward(self):
         '''
@@ -118,6 +134,8 @@ class ServerlessEnv(gym.Env):
         '''
         Initialize the environment
         '''
+        super().reset(seed=seed) # We need the following line to seed self.np_random
+        
         self.current_time = 0  # Start at time 0
         self._request_matrix = np.ones((self.size, 1), dtype=bool)
         self._resource_matrix = np.zeros((self.num_resources, 1), dtype=bool)
