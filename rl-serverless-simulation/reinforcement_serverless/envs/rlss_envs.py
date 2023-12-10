@@ -1,3 +1,4 @@
+import os
 import enum
 import numpy as np
 
@@ -37,13 +38,19 @@ class ServerlessEnv(gym.Env):
         self.num_resources = 3  # The number of resource parameters (RAM, GPU, CPU)
         self.num_actions = len(Actions)
         self.max_container = 256
+        
+        self.timeout = 1000  # Set timeout value = 1000s
+        self.container_lifetime = 43200  # Set lifetime of a container = 1/2 day
+        self.limited_ram = 64  # Set limited amount of RAM (server) = 64GB
+        self.limited_request = 128
 
         '''
         Define observations (state space)
         '''
         self.observation_space = spaces.Dict({
-            "request_quantity":  spaces.Box(low=0, high=self.max_container, shape=(self.size, 1), dtype=np.int16),
-            "remained_resource": spaces.Box(low=0, high=self.max_container, shape=(self.num_resources, 1), dtype=np.int16),
+            "execution_times":   spaces.Box(low=1, high=10, shape=(self.size, 1), dtype=np.int16),
+            "request_quantity":  spaces.Box(low=0, high=self.limited_request, shape=(self.size, 1), dtype=np.int16),
+            "remained_resource": spaces.Box(low=0, high=self.limited_ram, shape=(self.num_resources, 1), dtype=np.int16),
             "container_traffic": spaces.Box(low=0, high=self.max_container, shape=(self.size, self.num_states), dtype=np.int16),
         })
         
@@ -61,19 +68,21 @@ class ServerlessEnv(gym.Env):
         # Set the last column of the _action_unit to be always zero
         self._action_unit.low[:, -1] = 0
         self._action_unit.high[:, -1] = 0
+        # Set the sum of the elements in a row of the _action_unit = 0 using _get_units()
         self._get_units()
         
         '''
         Initialize the state and other variables
         '''
         self.current_time = 0  # Start at time 0
-        self.timeout = 1000  # Set timeout value = 1000s
-        self.limited_ram = 64  # Set limited amount of RAM = 64GB/service
+        self._ram_required_matrix = np.array([0, 0, 0, 0.9, 2])
         self._action_matrix = np.zeros((self.size, self.num_states), dtype=np.int16)  # Set an initial value
-        self._request_matrix = np.ones((self.size, 1), dtype=np.int16)
-        self._resource_matrix = np.zeros((self.num_resources, 1), dtype=np.int16)
+        self._exectime_matrix = np.random.randint(2, 16, size=(self.size, 1))
+        self._request_matrix = np.zeros((self.size, 1), dtype=np.int16)
+        self._resource_matrix = np.ones((self.num_resources, 1), dtype=np.int16)
+        self._resource_matrix[0, 0] = self.limited_ram
         self._container_matrix = np.hstack((
-            np.random.randint(0, 256, size=(self.size, 1)),
+            np.random.randint(0, self.max_container, size=(self.size, 1)),
             np.zeros((self.size, self.num_states-1), dtype=np.int16)
         ))  # Initially the containers are in Null state
 
@@ -90,21 +99,14 @@ class ServerlessEnv(gym.Env):
             if np.all(row_sums == 0):  # If row sum is 0, assign the matrix to _action_unit
                 self._action_unit.low[:, :-1] = random_matrix
                 self._action_unit.high[:, :-1] = random_matrix
-                break
-        
-
-    def _get_reward(self):
-        '''
-        Define reward calculation function
-        '''
-        reward = 123456
-        return reward      
+                break     
         
     def _get_obs(self):
         '''
         Define a function that returns the values of observation
         '''
         return {
+            "execution_times": self._exectime_matrix,
             "request_quantity": self._request_matrix,
             "remained_resource": self._resource_matrix,
             "container_traffic": self._container_matrix,
@@ -121,11 +123,37 @@ class ServerlessEnv(gym.Env):
             "system_profit": 400,
         }
         
-    def _get_constraints(self):
+    def _get_reward(self):
+        '''
+        Define reward calculation function
+        '''
+        a, b = 100, 100  # <-- Customize the coefficients a and b here
+        info = self._get_info()
+        reward = a * info["system_profit"] - b * info["energy_consumption"] - \
+                 info["penalty_delay"] - info["penalty_abandone"]
+        return reward  
+        
+    def _get_constraints(self, action):
         '''
         Define a function that checks constraint conditions (action masking)
         '''
+        temp_matrix = self._container_matrix
+        temp_matrix += action[0] @ action[1]
+        if (np.any(temp_matrix < 0)): 
+            action = self.action_space.sample()  # Make sure there are no negative values in _container_matrix
+            return False
+        
+        temp_matrix *= self._ram_required_matrix
+        if (np.sum(temp_matrix) > self._resource_matrix[0, 0]):
+            return False  # Make sure there is no RAM overflow
+        
         return True
+    
+    def _get_time(self, action):
+        '''
+        Define a function that calculates the execution time in the system
+        '''
+        self.current_time += 100
     
     def reset(self, seed=None, options=None):
         '''
@@ -134,10 +162,12 @@ class ServerlessEnv(gym.Env):
         super().reset(seed=seed) # We need the following line to seed self.np_random
         
         self.current_time = 0  # Start at time 0
+        self._exectime_matrix = np.random.randint(2, 16, size=(self.size, 1))
         self._request_matrix = np.ones((self.size, 1), dtype=bool)
         self._resource_matrix = np.zeros((self.num_resources, 1), dtype=bool)
+        self._resource_matrix[0, 0] = self.limited_ram
         self._container_matrix = np.hstack((
-            np.random.randint(0, 256, size=(self.size, 1)),
+            np.random.randint(0, self.max_container, size=(self.size, 1)),
             np.zeros((self.size, self.num_states-1), dtype=np.int16)
         ))  # Initially the containers are in Null state
         
@@ -152,13 +182,17 @@ class ServerlessEnv(gym.Env):
         '''
         if (self._get_constraints):
             self._action_matrix = action[0] @ action[1]
-            
+            self._container_matrix += self._action_matrix
         else: pass
         
         '''
         A learning round ends if time exceeds timeout, or resource usage exceeds the limit
         '''
-        terminated = (self.current_time >= self.timeout)
+        self._get_time(action)
+        temp_matrix = self._container_matrix * self._ram_required_matrix
+        terminated = (self.current_time >= self.timeout) or \
+                     (np.sum(temp_matrix) > self._resource_matrix[0, 0]) or \
+                     ()
         truncated = False
         reward = self._get_reward()
         observation = self._get_obs()
@@ -173,11 +207,11 @@ class ServerlessEnv(gym.Env):
         info = self._get_info()
         reward = self._get_reward()
         print("SYSTEM EVALUATION PARAMETERS:")
-        print("- Energy Consumption: {:.2f}J".format(info["energy_consumption"]))
-        print("- Delay Penalty:      {:.2f}".format(info["penalty_delay"]))
-        print("- Abandone Penalty:   {:.2f}".format(info["penalty_abandone"]))
-        print("- Profit:             {:.2f}".format(info["system_profit"]))
-        print("- Reward:             {:.2f}".format(reward))
+        print("- Energy Consumption  : {:.2f}J".format(info["energy_consumption"]))
+        print("- Delay Penalty       : {:.2f}".format(info["penalty_delay"]))
+        print("- Abandone Penalty    : {:.2f}".format(info["penalty_abandone"]))
+        print("- Profit              : {:.2f}".format(info["system_profit"]))
+        print("- Reward              : {:.2f}".format(reward))
 
     def close(self):
         '''
@@ -192,6 +226,10 @@ if __name__ == "__main__":
     
     # Reset the environment to the initial state
     observation, info = rlss_env.reset()
+    
+    os.system('clear')
+    for i, (row1, row2) in enumerate(zip(rlss_env._container_matrix, rlss_env._exectime_matrix), start=1):
+        print(f"Service {i}: {row1[0]} containers\t- {row2[0]}s to execute each request")
     
     # Perform random actions
     while (True):

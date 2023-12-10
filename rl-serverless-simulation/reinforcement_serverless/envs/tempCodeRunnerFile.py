@@ -1,0 +1,1 @@
+np.random.randint(2, 16, size=(self.size, 1))

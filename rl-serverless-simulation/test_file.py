@@ -34,6 +34,7 @@ class CustomEnvironment(gym.Env):
         self.size = size
         self.max_container = 256
         self.num_states = 5
+        self.num_resources = 3
         
         '''
         Define action space containing two matrices by combining them into a Tuple space
@@ -51,6 +52,11 @@ class CustomEnvironment(gym.Env):
         self._action_unit.high[:, -1] = 0
         
         self._generate_valid_custom_matrix()  # Generate a valid custom matrix
+        
+        self._resource_matrix = np.zeros((self.num_resources, 1), dtype=np.int16)
+        self._resource_matrix[0, 0] = 100
+        
+        
         
     def _generate_valid_custom_matrix(self):
         while True:
@@ -76,3 +82,49 @@ print("Action Units Matrix:")
 print(action[1])
 print("Sampled Action:")
 print(action[0] @ action[1])
+
+print(rlss_env._resource_matrix)
+
+# Create a sample matrix (3x3) for illustration purposes
+matrix = np.array([[1, 2, 3],
+                   [4, 0, 6],
+                   [7, 8, 0]])
+
+# Check if any element is less than 0
+any_less_than_zero = np.any(matrix < 0)
+
+print("Any element is less than 0:", any_less_than_zero)
+
+sub_matrix = np.array([1, 5, 2])
+matrix *= sub_matrix
+
+print(matrix)
+
+print(matrix[0, 0])
+
+a, b = 100, 200
+
+print(a)
+print(b)
+
+for i, row in enumerate(matrix):
+    print(f"{i + 1}: {row[0]}") 
+    
+    
+# Example matrices
+matrix1 = np.array([
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9]
+])
+
+matrix2 = np.array([
+    [11, 12, 13],
+    [14, 15, 16],
+    [17, 18, 19]
+])
+
+for i, (row1, row2) in enumerate(zip(matrix1, matrix2), start=1):
+    for j, (elem1, elem2) in enumerate(zip(row1, row2), start=1):
+        print(f"Matrix 1 - Row: {i}, Col: {j}, Value: {elem1}")
+        print(f"Matrix 2 - Row: {i}, Col: {j}, Value: {elem2}")
