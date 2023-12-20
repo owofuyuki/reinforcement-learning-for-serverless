@@ -1,5 +1,7 @@
 import os
+import time
 import enum
+import threading
 import numpy as np
 
 import gymnasium as gym
@@ -28,7 +30,7 @@ class Actions(enum.Enum):
 class ServerlessEnv(gym.Env):
     metadata = {}
 
-    def __init__(self, render_mode=None, size=5):
+    def __init__(self, render_mode=None, size=4):
         super(ServerlessEnv, self).__init__()
         '''
         Define environment parameters
@@ -39,7 +41,7 @@ class ServerlessEnv(gym.Env):
         self.num_actions = len(Actions)
         self.max_container = 256
         
-        self.timeout = 1000  # Set timeout value = 1000s
+        self.timeout = 10  # Set timeout value = 10s
         self.container_lifetime = 43200  # Set lifetime of a container = 1/2 day
         self.limited_ram = 64  # Set limited amount of RAM (server) = 64GB
         self.limited_request = 128
@@ -68,6 +70,7 @@ class ServerlessEnv(gym.Env):
         # Set the last column of the _action_unit to be always zero
         self._action_unit.low[:, -1] = 0
         self._action_unit.high[:, -1] = 0
+        
         # Set the sum of the elements in a row of the _action_unit = 0 using _get_units()
         self._get_units()
         
@@ -75,16 +78,31 @@ class ServerlessEnv(gym.Env):
         Initialize the state and other variables
         '''
         self.current_time = 0  # Start at time 0
-        self._ram_required_matrix = np.array([0, 0, 0, 0.9, 2])
+        self._custom_request = np.random.randint(0, 64, size=(self.size, 1))  # Randomly set the number of incoming requests every Δt seconds
+        self._pending_request = np.zeros((self.size, 1), dtype=np.int16)  # Set an initial value
+        self._ram_required_matrix = np.array([0, 0, 0, 0.9, 2])  # Set the required RAM each state
         self._action_matrix = np.zeros((self.size, self.num_states), dtype=np.int16)  # Set an initial value
         self._exectime_matrix = np.random.randint(2, 16, size=(self.size, 1))
         self._request_matrix = np.zeros((self.size, 1), dtype=np.int16)
         self._resource_matrix = np.ones((self.num_resources, 1), dtype=np.int16)
         self._resource_matrix[0, 0] = self.limited_ram
         self._container_matrix = np.hstack((
-            np.random.randint(0, self.max_container, size=(self.size, 1)),
+            np.random.randint(0, self.max_container, size=(self.size, 1)),  # Initially the containers are in Null state
             np.zeros((self.size, self.num_states-1), dtype=np.int16)
-        ))  # Initially the containers are in Null state
+        ))  
+        
+        '''
+        Create and start thread objects for parallel execution
+        '''
+        self.thread_time = threading.Thread(target=self._get_time)
+        self.thread_request = threading.Thread(target=self._get_request)
+        self.thread_pending = threading.Thread(target=self._get_pending)
+        self.thread_system = threading.Thread(target=self._get_system)
+        
+        self.thread_time.start()
+        self.thread_request.start()
+        self.thread_pending.start()
+        self.thread_system.start()
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -149,11 +167,38 @@ class ServerlessEnv(gym.Env):
         
         return True
     
-    def _get_time(self, action):
+    def _get_time(self):
+        '''
+        Define a function that counts the time in the system
+        '''
+        while True:
+            time.sleep(1)  # Wait for 1 second
+            self.current_time += 1
+    
+    def _get_request(self):
+        '''
+        Define a function that receives an incoming request every Δt seconds
+        '''
+        delta_time = 20
+        while True:
+            time.sleep(delta_time)  # Wait for Δt seconds
+            self._request_matrix += self._custom_request
+        
+    def _get_pending(self):
+        '''
+        Define a function that eliminates request failure due to timeout
+        '''
+        while True:
+            time.sleep(self.timeout)  # Wait for 'timeout' seconds
+            self._request_matrix -= self._pending_request
+            self._pending_request = np.zeros((self.size, 1), dtype=np.int16)
+            raise ValueError("Request failed due to timeout.")
+        
+    def _get_system(self):
         '''
         Define a function that calculates the execution time in the system
         '''
-        self.current_time += 100
+        pass
     
     def reset(self, seed=None, options=None):
         '''
@@ -162,6 +207,7 @@ class ServerlessEnv(gym.Env):
         super().reset(seed=seed) # We need the following line to seed self.np_random
         
         self.current_time = 0  # Start at time 0
+        self._pending_request = np.zeros((self.size, 1), dtype=np.int16)  # Set an initial value
         self._exectime_matrix = np.random.randint(2, 16, size=(self.size, 1))
         self._request_matrix = np.ones((self.size, 1), dtype=bool)
         self._resource_matrix = np.zeros((self.num_resources, 1), dtype=bool)
@@ -188,11 +234,9 @@ class ServerlessEnv(gym.Env):
         '''
         A learning round ends if time exceeds timeout, or resource usage exceeds the limit
         '''
-        self._get_time(action)
         temp_matrix = self._container_matrix * self._ram_required_matrix
-        terminated = (self.current_time >= self.timeout) or \
-                     (np.sum(temp_matrix) > self._resource_matrix[0, 0]) or \
-                     ()
+        terminated = (self.current_time >= 200) or \
+                     (np.sum(temp_matrix) > self._resource_matrix[0, 0])
         truncated = False
         reward = self._get_reward()
         observation = self._get_obs()
@@ -234,12 +278,13 @@ if __name__ == "__main__":
     # Perform random actions
     while (True):
         print("----------------------------------------")
+        time.sleep(1)
         action = rlss_env.action_space.sample()  # Random action
-        # print("Action:", action)
+        # print("Action:\n", action)
         observation, reward, terminated, truncated, info = rlss_env.step(action)
         print(f"Reward: {reward}, Done: {terminated}")
         rlss_env.render()
-        if terminated: 
+        if (terminated or truncated): 
             print("----------------------------------------")
             break
         else: continue
