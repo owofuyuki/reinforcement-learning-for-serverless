@@ -1,6 +1,5 @@
 import os
 import time
-import enum
 import threading
 import numpy as np
 
@@ -21,10 +20,30 @@ Defines symbols in a state machine:
     - L2 = Warm CPU
     - A  = Active
 '''
-class Actions(enum.Enum):
-    previous_state = -1   
-    current_state = 0
-    next_state = 1
+
+class Actions:
+    source_state = -1
+    destination_state = 1
+    no_change_state = 0
+
+class States:
+    n = "Null"
+    l_0 = "Cold"
+    l_1 = "Warm Disk"
+    l_2 = "Warm CPU"
+    a = "Active"
+        
+class Transitions:
+    trans_0 = np.array([-1, 1, 0, 0, 0])   # N -> L0
+    trans_1 = np.array([1, -1, 0, 0, 0])   # L0 -> N
+    trans_2 = np.array([0, -1, 1, 0, 0])   # L0 -> L1
+    trans_3 = np.array([0, 1, -1, 0, 0])   # L1 -> L0
+    trans_4 = np.array([0, 0, -1, 1, 0])   # L1 -> L2
+    trans_5 = np.array([0, 0, 1, -1, 0])   # L2 -> L1
+    trans_6 = np.array([1, -1, -1, 1, 0])  # L0 -> N and L1 -> L2
+    trans_7 = np.array([-1, 1, 1, -1, 0])  # N -> L0 and L2 -> L1
+    trans_8 = np.array([1, -1, 1, -1, 0])  # L0 -> N and L2 -> L1
+    trans_9 = np.array([-1, 1, -1, 1, 0])  # N -> L0 and L1 -> L2
 
 
 class ServerlessEnv(gym.Env):
@@ -38,7 +57,6 @@ class ServerlessEnv(gym.Env):
         self.size = size  # The number of services
         self.num_states = 5  # The number of states in a container's lifecycle (N, L0, L1, L2, A)
         self.num_resources = 3  # The number of resource parameters (RAM, GPU, CPU)
-        self.num_actions = len(Actions)
         self.max_container = 256
         
         self.timeout = 10  # Set timeout value = 10s
@@ -67,11 +85,9 @@ class ServerlessEnv(gym.Env):
         np.fill_diagonal(self._action_coefficient.low, 0)
         np.fill_diagonal(self._action_coefficient.high, self.max_container)
         
-        # Set the last column of the _action_unit to be always zero
-        self._action_unit.low[:, -1] = 0
-        self._action_unit.high[:, -1] = 0
-        
-        # Set the sum of the elements in a row of the _action_unit = 0 using _get_units()
+        # Set the last column of the _action_unit to be always zero and the sum of the elements in a row of the _action_unit = 0 using _get_units()
+        # self._action_unit.low[:, -1] = 0
+        # self._action_unit.high[:, -1] = 0
         self._get_units()
         
         '''
@@ -97,27 +113,27 @@ class ServerlessEnv(gym.Env):
         self.thread_time = threading.Thread(target=self._get_time)
         self.thread_request = threading.Thread(target=self._get_request)
         self.thread_pending = threading.Thread(target=self._get_pending)
-        self.thread_system = threading.Thread(target=self._get_system)
         
         self.thread_time.start()
         self.thread_request.start()
         self.thread_pending.start()
-        self.thread_system.start()
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         
     def _get_units(self):
         '''
-        Define a function to create a random matrix such that the sum of the elements in a row = 0
+        Define a function to create a random action unit matrix
         '''
-        while True:
-            random_matrix = np.random.randint(-1, 2, size=(self.size, self.num_states-1))  # Generate a random matrix
-            row_sums = np.sum(random_matrix, axis=1)  # Ensure the row sum is 0
-            if np.all(row_sums == 0):  # If row sum is 0, assign the matrix to _action_unit
-                self._action_unit.low[:, :-1] = random_matrix
-                self._action_unit.high[:, :-1] = random_matrix
-                break     
+        # while True:
+        #     random_matrix = np.random.randint(-1, 2, size=(self.size, self.num_states-1))  # Generate a random matrix
+        #     row_sums = np.sum(random_matrix, axis=1)  # Ensure the row sum is 0
+        #     if np.all(row_sums == 0):  # If row sum is 0, assign the matrix to _action_unit
+        #         self._action_unit.low[:, :-1] = random_matrix
+        #         self._action_unit.high[:, :-1] = random_matrix
+        #         break     
+        array_set = [getattr(Transitions, attr) for attr in dir(Transitions) if not attr.startswith("__")]
+        self._action_unit = np.array([array_set[np.random.randint(0, len(array_set))] for _ in range(self.size)])
         
     def _get_obs(self):
         '''
@@ -193,12 +209,6 @@ class ServerlessEnv(gym.Env):
             self._request_matrix -= self._pending_request
             self._pending_request = np.zeros((self.size, 1), dtype=np.int16)
             raise ValueError("Request failed due to timeout.")
-        
-    def _get_system(self):
-        '''
-        Define a function that calculates the execution time in the system
-        '''
-        pass
     
     def reset(self, seed=None, options=None):
         '''
@@ -246,7 +256,7 @@ class ServerlessEnv(gym.Env):
     
     def render(self):
         '''
-        Implement a visualization method (if needed)
+        Implement a visualization method
         '''
         info = self._get_info()
         reward = self._get_reward()
@@ -282,9 +292,11 @@ if __name__ == "__main__":
         action = rlss_env.action_space.sample()  # Random action
         # print("Action:\n", action)
         observation, reward, terminated, truncated, info = rlss_env.step(action)
-        print(f"Reward: {reward}, Done: {terminated}")
+        print(f"Reward: {reward}, Done: {terminated}, Failed: {truncated}")
         rlss_env.render()
         if (terminated or truncated): 
             print("----------------------------------------")
             break
         else: continue
+    
+    os._exit(1)

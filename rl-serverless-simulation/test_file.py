@@ -129,81 +129,125 @@
 #         print(f"Matrix 1 - Row: {i}, Col: {j}, Value: {elem1}")
 #         print(f"Matrix 2 - Row: {i}, Col: {j}, Value: {elem2}")
 
+# import numpy as np
+
+# array_set = {
+#     'array_1': np.array([-1, 1, 0, 0, 0]),
+#     'array_2': np.array([1, -1, 0, 0, 0]),
+#     'array_3': np.array([0, -1, 1, 0, 0]),
+#     'array_4': np.array([0, 1, -1, 0, 0]),
+#     'array_5': np.array([0, 0, -1, 1, 0]),
+#     'array_6': np.array([0, 0, 1, -1, 0]),
+# }
+
+# def initialize_matrix(size):
+#     keys = list(array_set.keys())
+#     matrix = np.array([array_set[np.random.choice(keys)] for _ in range(size)])
+#     return matrix
+
+# # Example usage:
+# result_matrix = initialize_matrix(4)
+# print(result_matrix)
+# print(result_matrix[0])
+
+# print(np.array_equal(result_matrix[0], array_set["array_1"]))
+
+import numpy as np
+
 import gymnasium as gym
 from gymnasium import spaces
-import numpy as np
-import threading
-import time
 
-class CustomEnvironment(gym.Env):
-    def __init__(self, size):
-        self.size = size
-        self.num_states = 1
+class Transitions:
+    trans_0 = np.array([-1, 1, 0, 0, 0])   # N -> L0
+    trans_1 = np.array([1, -1, 0, 0, 0])   # L0 -> N
+    trans_2 = np.array([0, -1, 1, 0, 0])   # L0 -> L1
+    trans_3 = np.array([0, 1, -1, 0, 0])   # L1 -> L0
+    trans_4 = np.array([0, 0, -1, 1, 0])   # L1 -> L2
+    trans_5 = np.array([0, 0, 1, -1, 0])   # L2 -> L1
+    trans_6 = np.array([1, -1, -1, 1, 0])  # L0 -> N and L1 -> L2
+    trans_7 = np.array([-1, 1, 1, -1, 0])  # N -> L0 and L2 -> L1
+    trans_8 = np.array([1, -1, 1, -1, 0])  # L0 -> N and L2 -> L1
+    trans_9 = np.array([-1, 1, -1, 1, 0]) 
+
+class ServerlessEnv(gym.Env):
+    metadata = {}
+
+    def __init__(self, render_mode=None, size=4):
+        super(ServerlessEnv, self).__init__()
+        '''
+        Define environment parameters
+        '''
+        self.size = size  # The number of services
+        self.num_states = 5  # The number of states in a container's lifecycle (N, L0, L1, L2, A)
+        self.num_resources = 3  # The number of resource parameters (RAM, GPU, CPU)
+        self.max_container = 256
         
-        # Initialize variables for request and system processing
-        self._request_matrix = np.zeros((self.size, self.num_states), dtype=np.int16)
-        self._pending_request = np.zeros((self.size, self.num_states), dtype=np.int16)
-        self._custom_request = np.zeros((self.size, self.num_states), dtype=np.int16)
-        self._warm_cpu = 0
+        self.timeout = 10  # Set timeout value = 10s
+        self.container_lifetime = 43200  # Set lifetime of a container = 1/2 day
+        self.limited_ram = 64  # Set limited amount of RAM (server) = 64GB
+        self.limited_request = 128
+
+        '''
+        Define observations (state space)
+        '''
+        self.observation_space = spaces.Dict({
+            "execution_times":   spaces.Box(low=1, high=10, shape=(self.size, 1), dtype=np.int16),
+            "request_quantity":  spaces.Box(low=0, high=self.limited_request, shape=(self.size, 1), dtype=np.int16),
+            "remained_resource": spaces.Box(low=0, high=self.limited_ram, shape=(self.num_resources, 1), dtype=np.int16),
+            "container_traffic": spaces.Box(low=0, high=self.max_container, shape=(self.size, self.num_states), dtype=np.int16),
+        })
         
-        # Create thread objects for parallel execution
-        self.thread_time = threading.Thread(target=self._get_time)
-        self.thread_request = threading.Thread(target=self._get_request)
-        self.thread_pending = threading.Thread(target=self._get_pending)
-        self.thread_system = threading.Thread(target=self._get_system)
+        '''
+        Define action space containing two matrices by combining them into a Tuple space
+        '''
+        self._action_coefficient = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int16)
+        self._action_unit = spaces.Box(low=-1, high=1, shape=(self.size, self.num_states), dtype=np.int16)
+        self.action_space = spaces.Tuple((self._action_coefficient, self._action_unit))
         
-        # Set initial time
-        self.current_time = 0
+        # Set the main diagonal elements of _action_coefficient to be in the range [0, self.max_container] 
+        np.fill_diagonal(self._action_coefficient.low, 0)
+        np.fill_diagonal(self._action_coefficient.high, self.max_container)
         
-        # Start threads for parallel execution
-        self.thread_time.start()
-        self.thread_request.start()
-        self.thread_pending.start()
-        self.thread_system.start()
+        # Set the last column of the _action_unit to be always zero and the sum of the elements in a row of the _action_unit = 0 using _get_units()
+        # self._action_unit.low[:, -1] = 0
+        # self._action_unit.high[:, -1] = 0
+        self._get_units()
         
-    def _get_time(self):
-        while True:
-            time.sleep(1)  # Wait for 1 second
-            self.current_time += 1
-            
-            if self.current_time >= 20:
-                break  # Terminate condition
-            
-    def _get_request(self):
-        while True:
-            time.sleep(10)  # Wait for 10 seconds
-            self._request_matrix += self._custom_request
-            
-    def _get_pending(self):
-        while True:
-            time.sleep(2)  # Wait for 2 seconds
-            self._request_matrix -= self._pending_request
-            self._pending_request = np.zeros((self.size, self.num_states), dtype=np.int16)
-            
-    def _get_system(self):
-        while True:
-            time.sleep(1)  # Wait for 1 second
-            
-            if self._warm_cpu >= 0:
-                time.sleep(4)  # Wait for exec_time = 4 seconds
-                return self._warm_cpu
-            else:
-                time.sleep(6)  # Wait for delay_time = 6 seconds
-                return False
+        '''
+        Initialize the state and other variables
+        '''
+        self.current_time = 0  # Start at time 0
+        self._custom_request = np.random.randint(0, 64, size=(self.size, 1))  # Randomly set the number of incoming requests every Δt seconds
+        self._pending_request = np.zeros((self.size, 1), dtype=np.int16)  # Set an initial value
+        self._ram_required_matrix = np.array([0, 0, 0, 0.9, 2])  # Set the required RAM each state
+        self._action_matrix = np.zeros((self.size, self.num_states), dtype=np.int16)  # Set an initial value
+        self._exectime_matrix = np.random.randint(2, 16, size=(self.size, 1))
+        self._request_matrix = np.zeros((self.size, 1), dtype=np.int16)
+        self._resource_matrix = np.ones((self.num_resources, 1), dtype=np.int16)
+        self._resource_matrix[0, 0] = self.limited_ram
+        self._container_matrix = np.hstack((
+            np.random.randint(0, self.max_container, size=(self.size, 1)),  # Initially the containers are in Null state
+            np.zeros((self.size, self.num_states-1), dtype=np.int16)
+        ))  
+
+        assert render_mode is None or render_mode in self.metadata["render_modes"]
+        self.render_mode = render_mode
         
-    def step(self, action):
-        time.sleep(1)
+    def _get_units(self):
+        '''
+        Define a function to create a random matrix such that the sum of the elements in a row = 0
+        '''
+        # while True:
+        #     random_matrix = np.random.randint(-1, 2, size=(self.size, self.num_states-1))  # Generate a random matrix
+        #     row_sums = np.sum(random_matrix, axis=1)  # Ensure the row sum is 0
+        #     if np.all(row_sums == 0):  # If row sum is 0, assign the matrix to _action_unit
+        #         self._action_unit.low[:, :-1] = random_matrix
+        #         self._action_unit.high[:, :-1] = random_matrix
+        #         break     
+        array_set = [getattr(Transitions, attr) for attr in dir(Transitions) if not attr.startswith("__")]
+        self._action_unit = np.array([array_set[np.random.randint(0, len(array_set))] for _ in range(self.size)])
 
 # Example usage:
-if __name__ == "__main__":
-    env = CustomEnvironment(size=4)  # Create an instance of the custom environment with size = 4
-    
-    while True:        
-        # Get the current time while the environment is running
-        current_time = env.current_time
-        time.sleep(1)  # Sleep for some time
-        print("Current time:", current_time)
-        
-        if current_time >= 20:
-            break  # Terminate the loop if time reaches 200
-
+env = ServerlessEnv()
+result_matrix = env._action_unit
+print(result_matrix)
