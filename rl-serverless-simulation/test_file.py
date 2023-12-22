@@ -251,3 +251,24 @@ class ServerlessEnv(gym.Env):
 env = ServerlessEnv()
 result_matrix = env._action_unit
 print(result_matrix)
+
+# Example matrices (replace these with your actual matrices)
+matrix_4x5 = np.random.randint(1, 10, size=(4, 5))  # Example 4x5 matrix
+matrix_1x5 = np.array([1, 2, 3, 4, 5])  # Example 1x5 matrix
+
+sum_variable = 0
+
+for row in matrix_4x5:
+    product = np.dot(row, matrix_1x5)  # Compute the dot product of each row with the 1x5 matrix
+    sum_variable += product  # Add the product to the sum
+
+print(matrix_4x5)
+print(matrix_1x5)
+print(np.sum(matrix_4x5[0] @ matrix_1x5))
+print("Sum of products:", sum_variable)
+
+abc = np.random.randint(0, 64, size=(4, 1))
+print(abc)
+print(abc[1][0])
+    
+    
