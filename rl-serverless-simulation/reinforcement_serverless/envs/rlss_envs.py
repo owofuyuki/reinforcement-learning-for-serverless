@@ -99,6 +99,7 @@ class ServerlessEnv(gym.Env):
         Initialize the state and other variables
         '''
         self.current_time = 0  # Start at time 0
+        self.transition_ram = 0  # Set an initial value
         self.transition_time = 0  # Set an initial value
         self.transition_power = 0  # Set an initial value
         self._custom_request = np.random.randint(0, 64, size=(self.size, 1))  # Randomly set the number of incoming requests every Δt seconds
@@ -120,10 +121,12 @@ class ServerlessEnv(gym.Env):
         self.thread_time = threading.Thread(target=self._get_time)
         self.thread_request = threading.Thread(target=self._get_request)
         self.thread_pending = threading.Thread(target=self._get_pending)
+        self.thread_system = threading.Thread(target=self._get_system)
         
         self.thread_time.start()
         self.thread_request.start()
         self.thread_pending.start()
+        self.thread_system.start()
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -207,6 +210,12 @@ class ServerlessEnv(gym.Env):
         '''
         pass
     
+    def _get_transition_ram(self, action):
+        '''
+        Define a function that calculates RAM consumed when switching states
+        '''
+        pass
+    
     def _get_system(self, action):
         self._get_transition_time(action)
         temp_matrix = self._container_matrix
@@ -253,7 +262,7 @@ class ServerlessEnv(gym.Env):
         cost_per_unit = 0.0000166667
         
         for service in range(self.size):
-            ram_used_per_service += np.sum(self._container_matrix[service] * self._ram_required_matrix) + self.transition_time
+            ram_used_per_service += np.sum(self._container_matrix[service] * self._ram_required_matrix) + self.transition_ram
             profit_per_service = self._custom_request[service] * ram_used_per_service * \
                                  self._exectime_matrix[service] * cost_per_unit
             profit += profit_per_service[0]
@@ -299,6 +308,7 @@ class ServerlessEnv(gym.Env):
         if (self._get_constraints):
             self._action_matrix = action[0] @ action[1]
             self._container_matrix += self._action_matrix
+            # Add editing algorithm (if any)
         else: pass
         
         '''
