@@ -99,6 +99,8 @@ class ServerlessEnv(gym.Env):
         Initialize the state and other variables
         '''
         self.current_time = 0  # Start at time 0
+        self.transition_time = 0  # Set an initial value
+        self.transition_power = 0  # Set an initial value
         self._custom_request = np.random.randint(0, 64, size=(self.size, 1))  # Randomly set the number of incoming requests every Δt seconds
         self._pending_request = np.zeros((self.size, 1), dtype=np.int16)  # Set an initial value
         self._ram_required_matrix = np.array([0, 0, 0, 0.9, 2])  # Set the required RAM each state
@@ -138,37 +140,9 @@ class ServerlessEnv(gym.Env):
         #         self._action_unit.high[:, :-1] = random_matrix
         #         break     
         array_set = [getattr(Transitions, attr) for attr in dir(Transitions) if not attr.startswith("__")]
-        self._action_unit = np.array([array_set[np.random.randint(0, len(array_set))] for _ in range(self.size)])
-        
-    def _get_obs(self):
-        '''
-        Define a function that returns the values of observation
-        '''
-        return {
-            "execution_times": self._exectime_matrix,
-            "request_quantity": self._request_matrix,
-            "remained_resource": self._resource_matrix,
-            "container_traffic": self._container_matrix,
-        }
-
-    def _get_info(self):
-        '''
-        Defines a function that returns system evaluation parameters
-        '''
-        profit = 0
-        cost_per_unit = 0.0000166667
-        
-        for service in range(self.size):
-            profit_per_service = self._custom_request[service] * np.sum(self._container_matrix[service] @ self._ram_required_matrix) * \
-                                 self._exectime_matrix[service] * cost_per_unit
-            profit += profit_per_service[0]
-        
-        return {
-            "energy_consumption": 100,
-            "penalty_delay": 200,
-            "penalty_abandone": 300,
-            "system_profit": profit,
-        }
+        random_matrix = np.array([array_set[np.random.randint(0, len(array_set))] for _ in range(self.size)])
+        self._action_unit.low[:, :] = random_matrix
+        self._action_unit.high[:, :] = random_matrix
         
     def _get_reward(self):
         '''
@@ -207,7 +181,7 @@ class ServerlessEnv(gym.Env):
         '''
         Define a function that receives an incoming request every Δt seconds
         '''
-        delta_time = 20
+        delta_time = 10
         while True:
             time.sleep(delta_time)  # Wait for Δt seconds
             self._request_matrix += self._custom_request
@@ -220,6 +194,81 @@ class ServerlessEnv(gym.Env):
             time.sleep(self.timeout)  # Wait for 'timeout' seconds
             self._request_matrix -= self._pending_request
             self._pending_request = np.zeros((self.size, 1), dtype=np.int16)
+    
+    def _get_transition_time(self, action):
+        '''
+        Define a function that calculates time consumed when switching states
+        '''
+        pass
+    
+    def _get_transition_power(self, action):
+        '''
+        Define a function that calculates power consumed when switching states
+        '''
+        pass
+    
+    def _get_system(self, action):
+        self._get_transition_time(action)
+        temp_matrix = self._container_matrix
+            
+        for service in range(self.size):
+            if (self._container_matrix[service, 4] >= self._request_matrix[service, 0]):
+                self._get_transition_power(action)
+                self._container_matrix[service, 4] -= self._request_matrix[service, 0]
+                self._request_matrix[service, 0] = 0
+            else:
+                self._get_transition_power(action)
+                self._request_matrix[service, 0] -= self._container_matrix[service, 4]
+                self._container_matrix[service, 4] = 0
+            
+        time.sleep(0.05)  # Time to switchs state from L2 to A
+        time_matrix = np.sort(self._exectime_matrix, axis=0)
+            
+        for i in range(self.size):
+            time.sleep(time_matrix[i, 0])  # Execution time
+            for j in range(self.size):
+                if (self._exectime_matrix[j, 0] == time_matrix[i, 0]):
+                    self._get_transition_power(action)
+                    self._container_matrix[j, 4] += (temp_matrix[j, 4] - self._container_matrix[j, 4])  # Containers at WarmCPU switches to Active to process requests
+                    time.sleep(0)  # Time to switchs state from A back to L2
+            time_matrix -= time_matrix[i, 0] 
+            
+    def _get_obs(self):
+        '''
+        Define a function that returns the values of observation
+        '''
+        return {
+            "execution_times": self._exectime_matrix,
+            "request_quantity": self._request_matrix,
+            "remained_resource": self._resource_matrix,
+            "container_traffic": self._container_matrix,
+        }
+
+    def _get_info(self):
+        '''
+        Defines a function that returns system evaluation parameters
+        '''
+        profit = 0
+        ram_used_per_service = 0
+        cost_per_unit = 0.0000166667
+        
+        for service in range(self.size):
+            ram_used_per_service += np.sum(self._container_matrix[service] * self._ram_required_matrix) + self.transition_time
+            profit_per_service = self._custom_request[service] * ram_used_per_service * \
+                                 self._exectime_matrix[service] * cost_per_unit
+            profit += profit_per_service[0]
+        
+        abandone_rate = (0.058 * self.current_time) if self.current_time > 2 else 0
+        time_temp = self.current_time if self.current_time > 2 else 0
+        alpha_temp = 0.05 * profit
+        beta_temp = 0.34
+        
+        return {
+            "energy_consumption": 100,
+            "penalty_delay": alpha_temp + beta_temp * time_temp,
+            "penalty_abandone": profit * abandone_rate,
+            "system_profit": profit,
+        }
     
     def reset(self, seed=None, options=None):
         '''
@@ -250,15 +299,14 @@ class ServerlessEnv(gym.Env):
         if (self._get_constraints):
             self._action_matrix = action[0] @ action[1]
             self._container_matrix += self._action_matrix
-            # Add editing algorithm (if any)
         else: pass
         
         '''
         A learning round ends if time exceeds timeout, or resource usage exceeds the limit
         '''
         temp_matrix = self._container_matrix * self._ram_required_matrix
-        terminated = (self.current_time >= 200) or \
-                     (np.sum(temp_matrix) > self._resource_matrix[0, 0])
+        terminated = self.current_time >= self.container_lifetime or \
+                     np.sum(temp_matrix) > self._resource_matrix[0, 0]
         truncated = False
         reward = self._get_reward()
         observation = self._get_obs()
@@ -298,15 +346,17 @@ if __name__ == "__main__":
         print(f"Service {i}: {row1[0]} containers\t- {row2[0]}s to execute each request")
     
     # Perform random actions
+    i = 0
     while (True):
+        i += 1
         print("----------------------------------------")
         time.sleep(1)
         action = rlss_env.action_space.sample()  # Random action
         # print("Action:\n", action)
         observation, reward, terminated, truncated, info = rlss_env.step(action)
-        print(f"Reward: {reward:.4f}, Done: {terminated}, Failed: {truncated}")
+        print(f"Round: {i}, Done: {terminated}")
         rlss_env.render()
-        if (terminated or truncated): 
+        if (terminated): 
             print("----------------------------------------")
             break
         else: continue

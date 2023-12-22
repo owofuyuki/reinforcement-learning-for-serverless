@@ -252,23 +252,51 @@ env = ServerlessEnv()
 result_matrix = env._action_unit
 print(result_matrix)
 
-# Example matrices (replace these with your actual matrices)
-matrix_4x5 = np.random.randint(1, 10, size=(4, 5))  # Example 4x5 matrix
-matrix_1x5 = np.array([1, 2, 3, 4, 5])  # Example 1x5 matrix
+# Example 4x1 matrix
+matrix_4x1 = np.array([[5], [2], [7], [3]])  # Replace this with your matrix
 
-sum_variable = 0
+# Get elements and sort them
+sorted_elements = np.sort(matrix_4x1, axis=0)  # Sort the elements along the columns
 
-for row in matrix_4x5:
-    product = np.dot(row, matrix_1x5)  # Compute the dot product of each row with the 1x5 matrix
-    sum_variable += product  # Add the product to the sum
+# Create a new 4x1 matrix with the sorted elements
+new_sorted_matrix = sorted_elements
 
-print(matrix_4x5)
-print(matrix_1x5)
-print(np.sum(matrix_4x5[0] @ matrix_1x5))
-print("Sum of products:", sum_variable)
+print("\nNew 4x1 matrix with sorted elements:")
+print(new_sorted_matrix - 1)
 
-abc = np.random.randint(0, 64, size=(4, 1))
-print(abc)
-print(abc[1][0])
+for i in range(4):
+    print(new_sorted_matrix[i])
     
-    
+import numpy as np
+from gym import spaces
+
+class Transitions:
+    trans_0 = np.array([-1, 1, 0, 0, 0]) # N -> L0
+    trans_1 = np.array([1, -1, 0, 0, 0]) # L0 -> N
+    trans_2 = np.array([0, -1, 1, 0, 0]) # L0 -> L1
+    trans_3 = np.array([0, 1, -1, 0, 0]) # L1 -> L0
+    trans_4 = np.array([0, 0, -1, 1, 0]) # L1 -> L2
+    trans_5 = np.array([0, 0, 1, -1, 0]) # L2 -> L1
+    trans_6 = np.array([1, -1, -1, 1, 0]) # L0 -> N and L1 -> L2
+    trans_7 = np.array([-1, 1, 1, -1, 0]) # N -> L0 and L2 -> L1
+    trans_8 = np.array([1, -1, 1, -1, 0]) # L0 -> N and L2 -> L1
+    trans_9 = np.array([-1, 1, -1, 1, 0]) # N -> L0 and L1 -> L2
+
+class CustomEnvironment:
+    def __init__(self, size, num_states):
+        self.size = size
+        self.num_states = num_states
+        self._action_coefficient = spaces.Box(low=0, high=0, shape=(self.size, self.size), dtype=np.int16)
+        self._action_unit = spaces.Box(low=-1, high=1, shape=(self.size, self.num_states), dtype=np.int16)
+        self.action_space = spaces.Tuple((self._action_coefficient, self._action_unit))
+
+    def _get_units(self):
+        array_set = [getattr(Transitions, attr) for attr in dir(Transitions) if not attr.startswith("__")]
+        random_matrix = np.array([array_set[np.random.randint(0, len(array_set))] for _ in range(self.size)])
+        self._action_unit = spaces.Box(low=np.min(random_matrix), high=np.max(random_matrix), shape=random_matrix.shape, dtype=np.int16)
+
+# Example usage:
+env = CustomEnvironment(size=4, num_states=5)
+env._get_units()
+action = env.action_space
+print("Action Space:", action[0])
