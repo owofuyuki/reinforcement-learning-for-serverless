@@ -345,7 +345,7 @@ class ServerlessEnv(gym.Env):
 
 
 if __name__ == "__main__":
-    # Create the network grid environment
+    # Create the serverless environment
     rlss_env = ServerlessEnv()
     
     # Reset the environment to the initial state
