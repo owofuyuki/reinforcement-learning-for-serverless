@@ -6,6 +6,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
+from utils.poisson_simulation import Poisson
 
 '''
 Define an index corresponding to the action that changes the container's state:
@@ -64,10 +65,11 @@ class ServerlessEnv(gym.Env):
         self.min_container = 16
         self.max_container = 256
         
-        self.timeout = 2  # Set timeout value = 2s
-        self.container_lifetime = 43200  # Set lifetime of a container = 1/2 day
+        self.timeout = 10  # Set timeout value = 10s
+        self.container_lifetime = 86400  # Set lifetime of a container = 1 day
         self.limited_ram = 64  # Set limited amount of RAM (server) = 64GB
-        self.limited_request = 128
+        self.limited_request = 1280  # Set the limit number of requests that can exist in the system = 1280
+        self.average_request = 640  # Set the average incoming requests per hour = 640
 
         '''
         Define observations (state space)
@@ -102,7 +104,6 @@ class ServerlessEnv(gym.Env):
         self.transition_ram = 0  # Set an initial value
         self.transition_time = 0  # Set an initial value
         self.transition_power = 0  # Set an initial value
-        self._custom_request = np.random.randint(0, 64, size=(self.size, 1))  # Randomly set the number of incoming requests every Δt seconds
         self._pending_request = np.zeros((self.size, 1), dtype=np.int16)  # Set an initial value
         self._ram_required_matrix = np.array([0, 0, 0, 0.9, 2])  # Set the required RAM each state
         self._action_matrix = np.zeros((self.size, self.num_states), dtype=np.int16)  # Set an initial value
@@ -182,12 +183,10 @@ class ServerlessEnv(gym.Env):
     
     def _get_request(self):
         '''
-        Define a function that receives an incoming request every Δt seconds
+        Define a function that receives an amount of incoming requests every Δt based on Poisson distribution
         '''
-        delta_time = 10
-        while True:
-            time.sleep(delta_time)  # Wait for Δt seconds
-            self._request_matrix += self._custom_request
+        while(True):
+            pass
         
     def _get_pending(self):
         '''
@@ -259,11 +258,11 @@ class ServerlessEnv(gym.Env):
         '''
         profit = 0
         ram_used_per_service = 0
-        cost_per_unit = 0.0000166667
+        cost_per_unit = 0
         
         for service in range(self.size):
             ram_used_per_service += np.sum(self._container_matrix[service] * self._ram_required_matrix) + self.transition_ram
-            profit_per_service = self._custom_request[service] * ram_used_per_service * \
+            profit_per_service = self.average_request * ram_used_per_service * \
                                  self._exectime_matrix[service] * cost_per_unit
             profit += profit_per_service[0]
         
@@ -360,7 +359,7 @@ if __name__ == "__main__":
     while (True):
         i += 1
         print("----------------------------------------")
-        time.sleep(1)
+        time.sleep(10)  # Gives action every 10 seconds
         action = rlss_env.action_space.sample()  # Random action
         # print("Action:\n", action)
         observation, reward, terminated, truncated, info = rlss_env.step(action)
