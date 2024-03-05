@@ -104,6 +104,7 @@ class ServerlessEnv(gym.Env):
         self.transition_ram = 0  # Set an initial value
         self.transition_time = 0  # Set an initial value
         self.transition_power = 0  # Set an initial value
+        self.processed_requests = 0  # Set an initial value
         self._pending_request = np.zeros((self.size, 1), dtype=np.int16)  # Set an initial value
         self._ram_required_matrix = np.array([0, 0, 0, 0.9, 2])  # Set the required RAM each state
         self._action_matrix = np.zeros((self.size, self.num_states), dtype=np.int16)  # Set an initial value
@@ -153,9 +154,11 @@ class ServerlessEnv(gym.Env):
         '''
         Define reward calculation function
         '''
-        a, b = 100, 100  # <-- Customize the coefficients a and b here
-        info = self._get_info()
-        reward = a * info["system_profit"] - b * info["energy_consumption"] - info["penalty_delay"] - info["penalty_abandone"]
+        # a, b = 100, 100  # <-- Customize the coefficients a and b here
+        # info = self._get_info()
+        # reward = a * info["system_profit"] - b * info["energy_consumption"] - info["penalty_delay"] - info["penalty_abandone"]
+        alpha = 0.1
+        reward = self.processed_requests - alpha * self.transition_time
         return reward  
         
     def _get_constraints(self, action):
@@ -242,30 +245,35 @@ class ServerlessEnv(gym.Env):
         pass
     
     def _get_system(self, action):
-        self._get_transition_time(action)
-        temp_matrix = self._container_matrix
+        # temp_matrix = self._container_matrix
             
-        for service in range(self.size):
-            if (self._container_matrix[service, 4] >= self._request_matrix[service, 0]):
-                self._get_transition_power(action)
-                self._container_matrix[service, 4] -= self._request_matrix[service, 0]
-                self._request_matrix[service, 0] = 0
-            else:
-                self._get_transition_power(action)
-                self._request_matrix[service, 0] -= self._container_matrix[service, 4]
-                self._container_matrix[service, 4] = 0
+        # for service in range(self.size):
+        #     if (self._container_matrix[service, 4] >= self._request_matrix[service, 0]):
+        #         self._get_transition_power(action)
+        #         self._get_transition_time(action)
+        #         self._container_matrix[service, 4] -= self._request_matrix[service, 0]
+        #         self._request_matrix[service, 0] = 0
+        #     else:
+        #         self._get_transition_power(action)
+        #         self._get_transition_time(action)
+        #         self._request_matrix[service, 0] -= self._container_matrix[service, 4]
+        #         self._container_matrix[service, 4] = 0
             
-        time.sleep(0.05)  # Time to switchs state from L2 to A
-        time_matrix = np.sort(self._exectime_matrix, axis=0)
+        # time.sleep(0.05)  # Time to switchs state from L2 to A
+        # time_matrix = np.sort(self._exectime_matrix, axis=0)
             
-        for i in range(self.size):
-            time.sleep(time_matrix[i, 0])  # Execution time
-            for j in range(self.size):
-                if (self._exectime_matrix[j, 0] == time_matrix[i, 0]):
-                    self._get_transition_power(action)
-                    self._container_matrix[j, 4] += (temp_matrix[j, 4] - self._container_matrix[j, 4])  # Containers at WarmCPU switches to Active to process requests
-                    time.sleep(0)  # Time to switchs state from A back to L2
-            time_matrix -= time_matrix[i, 0] 
+        # for i in range(self.size):
+        #     time.sleep(time_matrix[i, 0])  # Execution time
+        #     for j in range(self.size):
+        #         if (self._exectime_matrix[j, 0] == time_matrix[i, 0]):
+        #             self._get_transition_power(action)
+        #             self._get_transition_time(action)
+        #             self._container_matrix[j, 4] += (temp_matrix[j, 4] - self._container_matrix[j, 4])  # Containers at WarmCPU switches to Active to process requests
+        #             time.sleep(0)  # Time to switchs state from A back to L2
+        #     time_matrix -= time_matrix[i, 0] 
+        
+        pass
+        
             
     def _get_obs(self):
         '''
@@ -288,7 +296,7 @@ class ServerlessEnv(gym.Env):
         
         for service in range(self.size):
             ram_used_per_service += np.sum(self._container_matrix[service] * self._ram_required_matrix) + self.transition_ram
-            profit_per_service = self.average_request * ram_used_per_service * \
+            profit_per_service = self.average_requests * ram_used_per_service * \
                                  self._exectime_matrix[service] * cost_per_unit
             profit += profit_per_service[0]
         
@@ -311,6 +319,10 @@ class ServerlessEnv(gym.Env):
         super().reset(seed=seed) # We need the following line to seed self.np_random
         
         self.current_time = 0  # Start at time 0
+        self.transition_ram = 0  # Set an initial value
+        self.transition_time = 0  # Set an initial value
+        self.transition_power = 0  # Set an initial value
+        self.processed_requests = 0  # Set an initial value
         self._pending_request = np.zeros((self.size, 1), dtype=np.int16)  # Set an initial value
         self._exectime_matrix = np.random.randint(2, 16, size=(self.size, 1))
         self._request_matrix = np.zeros((self.size, 1), dtype=np.int32)
@@ -336,13 +348,9 @@ class ServerlessEnv(gym.Env):
             self._container_matrix += self._action_matrix
             # Add editing algorithm (if any)
         else: pass
-        
-        '''
-        A learning round ends if time exceeds timeout, or resource usage exceeds the limit
-        '''
+      
         temp_matrix = self._container_matrix * self._ram_required_matrix
-        terminated = self.current_time >= self.container_lifetime or \
-                     np.sum(temp_matrix) > self._resource_matrix[0, 0]
+        terminated = self.current_time >= self.container_lifetime
         truncated = False
         reward = self._get_reward()
         observation = self._get_obs()
@@ -388,6 +396,7 @@ if __name__ == "__main__":
         print("----------------------------------------")
         time.sleep(10)  # Gives action every 10 seconds
         action = rlss_env.action_space.sample()  # Random action
+        print(action[1][0])
         # print("Action:\n", action)
         observation, reward, terminated, truncated, info = rlss_env.step(action)
         print(f"Round: {i}, Done: {terminated}")
