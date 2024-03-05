@@ -114,7 +114,8 @@ class ServerlessEnv(gym.Env):
         self._container_matrix = np.hstack((
             np.random.randint(self.min_container, self.max_container, size=(self.size, 1)),  # Initially the containers are in Null state
             np.zeros((self.size, self.num_states-1), dtype=np.int16)
-        ))  
+        ))
+        self._is_changing_matrix = np.zeros((self.size, self.num_states), dtype=np.int16)  # Set an initial value
         
         '''
         Create and start thread objects for parallel execution
@@ -318,7 +319,8 @@ class ServerlessEnv(gym.Env):
         self._container_matrix = np.hstack((
             np.random.randint(self.min_container, self.max_container, size=(self.size, 1)),  # Initially the containers are in Null state
             np.zeros((self.size, self.num_states-1), dtype=np.int16)
-        ))   
+        ))
+        self._is_changing_matrix = np.zeros((self.size, self.num_states), dtype=np.int16)  # Set an initial value
         
         observation = self._get_obs()
         info = self._get_info()

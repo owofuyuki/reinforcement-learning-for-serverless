@@ -151,182 +151,182 @@
 
 # print(np.array_equal(result_matrix[0], array_set["array_1"]))
 
-import numpy as np
+# import numpy as np
 
-import gymnasium as gym
-from gymnasium import spaces
-
-
-class Transitions:
-    trans_0 = np.array([-1, 1, 0, 0, 0])  # N -> L0
-    trans_1 = np.array([1, -1, 0, 0, 0])  # L0 -> N
-    trans_2 = np.array([0, -1, 1, 0, 0])  # L0 -> L1
-    trans_3 = np.array([0, 1, -1, 0, 0])  # L1 -> L0
-    trans_4 = np.array([0, 0, -1, 1, 0])  # L1 -> L2
-    trans_5 = np.array([0, 0, 1, -1, 0])  # L2 -> L1
-    trans_6 = np.array([1, -1, -1, 1, 0])  # L0 -> N and L1 -> L2
-    trans_7 = np.array([-1, 1, 1, -1, 0])  # N -> L0 and L2 -> L1
-    trans_8 = np.array([1, -1, 1, -1, 0])  # L0 -> N and L2 -> L1
-    trans_9 = np.array([-1, 1, -1, 1, 0])
+# import gymnasium as gym
+# from gymnasium import spaces
 
 
-class ServerlessEnv(gym.Env):
-    metadata = {}
-
-    def __init__(self, render_mode=None, size=4):
-        super(ServerlessEnv, self).__init__()
-        """
-        Define environment parameters
-        """
-        self.size = size  # The number of services
-        self.num_states = (
-            5  # The number of states in a container's lifecycle (N, L0, L1, L2, A)
-        )
-        self.num_resources = 3  # The number of resource parameters (RAM, GPU, CPU)
-        self.max_container = 256
-
-        self.timeout = 10  # Set timeout value = 10s
-        self.container_lifetime = 43200  # Set lifetime of a container = 1/2 day
-        self.limited_ram = 64  # Set limited amount of RAM (server) = 64GB
-        self.limited_request = 128
-
-        """
-        Define observations (state space)
-        """
-        self.observation_space = spaces.Dict(
-            {
-                "execution_times": spaces.Box(
-                    low=1, high=10, shape=(self.size, 1), dtype=np.int16
-                ),
-                "request_quantity": spaces.Box(
-                    low=0,
-                    high=self.limited_request,
-                    shape=(self.size, 1),
-                    dtype=np.int16,
-                ),
-                "remained_resource": spaces.Box(
-                    low=0,
-                    high=self.limited_ram,
-                    shape=(self.num_resources, 1),
-                    dtype=np.int16,
-                ),
-                "container_traffic": spaces.Box(
-                    low=0,
-                    high=self.max_container,
-                    shape=(self.size, self.num_states),
-                    dtype=np.int16,
-                ),
-            }
-        )
-
-        """
-        Define action space containing two matrices by combining them into a Tuple space
-        """
-        self._action_coefficient = spaces.Box(
-            low=0, high=0, shape=(self.size, self.size), dtype=np.int16
-        )
-        self._action_unit = spaces.Box(
-            low=-1, high=1, shape=(self.size, self.num_states), dtype=np.int16
-        )
-        self.action_space = spaces.Tuple((self._action_coefficient, self._action_unit))
-
-        # Set the main diagonal elements of _action_coefficient to be in the range [0, self.max_container]
-        np.fill_diagonal(self._action_coefficient.low, 0)
-        np.fill_diagonal(self._action_coefficient.high, self.max_container)
-
-        # Set the last column of the _action_unit to be always zero and the sum of the elements in a row of the _action_unit = 0 using _get_units()
-        # self._action_unit.low[:, -1] = 0
-        # self._action_unit.high[:, -1] = 0
-        self._get_units()
-
-        """
-        Initialize the state and other variables
-        """
-        self.current_time = 0  # Start at time 0
-        self._custom_request = np.random.randint(
-            0, 64, size=(self.size, 1)
-        )  # Randomly set the number of incoming requests every Δt seconds
-        self._pending_request = np.zeros(
-            (self.size, 1), dtype=np.int16
-        )  # Set an initial value
-        self._ram_required_matrix = np.array(
-            [0, 0, 0, 0.9, 2]
-        )  # Set the required RAM each state
-        self._action_matrix = np.zeros(
-            (self.size, self.num_states), dtype=np.int16
-        )  # Set an initial value
-        self._exectime_matrix = np.random.randint(2, 16, size=(self.size, 1))
-        self._request_matrix = np.zeros((self.size, 1), dtype=np.int16)
-        self._resource_matrix = np.ones((self.num_resources, 1), dtype=np.int16)
-        self._resource_matrix[0, 0] = self.limited_ram
-        self._container_matrix = np.hstack(
-            (
-                np.random.randint(
-                    0, self.max_container, size=(self.size, 1)
-                ),  # Initially the containers are in Null state
-                np.zeros((self.size, self.num_states - 1), dtype=np.int16),
-            )
-        )
-
-        assert render_mode is None or render_mode in self.metadata["render_modes"]
-        self.render_mode = render_mode
-
-    def _get_units(self):
-        """
-        Define a function to create a random matrix such that the sum of the elements in a row = 0
-        """
-        # while True:
-        #     random_matrix = np.random.randint(-1, 2, size=(self.size, self.num_states-1))  # Generate a random matrix
-        #     row_sums = np.sum(random_matrix, axis=1)  # Ensure the row sum is 0
-        #     if np.all(row_sums == 0):  # If row sum is 0, assign the matrix to _action_unit
-        #         self._action_unit.low[:, :-1] = random_matrix
-        #         self._action_unit.high[:, :-1] = random_matrix
-        #         break
-        array_set = [
-            getattr(Transitions, attr)
-            for attr in dir(Transitions)
-            if not attr.startswith("__")
-        ]
-        self._action_unit = np.array(
-            [array_set[np.random.randint(0, len(array_set))] for _ in range(self.size)]
-        )
+# class Transitions:
+#     trans_0 = np.array([-1, 1, 0, 0, 0])  # N -> L0
+#     trans_1 = np.array([1, -1, 0, 0, 0])  # L0 -> N
+#     trans_2 = np.array([0, -1, 1, 0, 0])  # L0 -> L1
+#     trans_3 = np.array([0, 1, -1, 0, 0])  # L1 -> L0
+#     trans_4 = np.array([0, 0, -1, 1, 0])  # L1 -> L2
+#     trans_5 = np.array([0, 0, 1, -1, 0])  # L2 -> L1
+#     trans_6 = np.array([1, -1, -1, 1, 0])  # L0 -> N and L1 -> L2
+#     trans_7 = np.array([-1, 1, 1, -1, 0])  # N -> L0 and L2 -> L1
+#     trans_8 = np.array([1, -1, 1, -1, 0])  # L0 -> N and L2 -> L1
+#     trans_9 = np.array([-1, 1, -1, 1, 0])
 
 
-# Example usage:
-env = ServerlessEnv()
-result_matrix = env._action_unit
-print(result_matrix)
+# class ServerlessEnv(gym.Env):
+#     metadata = {}
 
-# Example 4x1 matrix
-matrix_4x1 = np.array([[5], [2], [7], [3]])  # Replace this with your matrix
+#     def __init__(self, render_mode=None, size=4):
+#         super(ServerlessEnv, self).__init__()
+#         """
+#         Define environment parameters
+#         """
+#         self.size = size  # The number of services
+#         self.num_states = (
+#             5  # The number of states in a container's lifecycle (N, L0, L1, L2, A)
+#         )
+#         self.num_resources = 3  # The number of resource parameters (RAM, GPU, CPU)
+#         self.max_container = 256
 
-# Get elements and sort them
-sorted_elements = np.sort(matrix_4x1, axis=0)  # Sort the elements along the columns
+#         self.timeout = 10  # Set timeout value = 10s
+#         self.container_lifetime = 43200  # Set lifetime of a container = 1/2 day
+#         self.limited_ram = 64  # Set limited amount of RAM (server) = 64GB
+#         self.limited_request = 128
 
-# Create a new 4x1 matrix with the sorted elements
-new_sorted_matrix = sorted_elements
+#         """
+#         Define observations (state space)
+#         """
+#         self.observation_space = spaces.Dict(
+#             {
+#                 "execution_times": spaces.Box(
+#                     low=1, high=10, shape=(self.size, 1), dtype=np.int16
+#                 ),
+#                 "request_quantity": spaces.Box(
+#                     low=0,
+#                     high=self.limited_request,
+#                     shape=(self.size, 1),
+#                     dtype=np.int16,
+#                 ),
+#                 "remained_resource": spaces.Box(
+#                     low=0,
+#                     high=self.limited_ram,
+#                     shape=(self.num_resources, 1),
+#                     dtype=np.int16,
+#                 ),
+#                 "container_traffic": spaces.Box(
+#                     low=0,
+#                     high=self.max_container,
+#                     shape=(self.size, self.num_states),
+#                     dtype=np.int16,
+#                 ),
+#             }
+#         )
 
-print("\nNew 4x1 matrix with sorted elements:")
-print(new_sorted_matrix - 1)
+#         """
+#         Define action space containing two matrices by combining them into a Tuple space
+#         """
+#         self._action_coefficient = spaces.Box(
+#             low=0, high=0, shape=(self.size, self.size), dtype=np.int16
+#         )
+#         self._action_unit = spaces.Box(
+#             low=-1, high=1, shape=(self.size, self.num_states), dtype=np.int16
+#         )
+#         self.action_space = spaces.Tuple((self._action_coefficient, self._action_unit))
 
-for i in range(4):
-    print(new_sorted_matrix[i])
+#         # Set the main diagonal elements of _action_coefficient to be in the range [0, self.max_container]
+#         np.fill_diagonal(self._action_coefficient.low, 0)
+#         np.fill_diagonal(self._action_coefficient.high, self.max_container)
 
-import numpy as np
-from gym import spaces
+#         # Set the last column of the _action_unit to be always zero and the sum of the elements in a row of the _action_unit = 0 using _get_units()
+#         # self._action_unit.low[:, -1] = 0
+#         # self._action_unit.high[:, -1] = 0
+#         self._get_units()
+
+#         """
+#         Initialize the state and other variables
+#         """
+#         self.current_time = 0  # Start at time 0
+#         self._custom_request = np.random.randint(
+#             0, 64, size=(self.size, 1)
+#         )  # Randomly set the number of incoming requests every Δt seconds
+#         self._pending_request = np.zeros(
+#             (self.size, 1), dtype=np.int16
+#         )  # Set an initial value
+#         self._ram_required_matrix = np.array(
+#             [0, 0, 0, 0.9, 2]
+#         )  # Set the required RAM each state
+#         self._action_matrix = np.zeros(
+#             (self.size, self.num_states), dtype=np.int16
+#         )  # Set an initial value
+#         self._exectime_matrix = np.random.randint(2, 16, size=(self.size, 1))
+#         self._request_matrix = np.zeros((self.size, 1), dtype=np.int16)
+#         self._resource_matrix = np.ones((self.num_resources, 1), dtype=np.int16)
+#         self._resource_matrix[0, 0] = self.limited_ram
+#         self._container_matrix = np.hstack(
+#             (
+#                 np.random.randint(
+#                     0, self.max_container, size=(self.size, 1)
+#                 ),  # Initially the containers are in Null state
+#                 np.zeros((self.size, self.num_states - 1), dtype=np.int16),
+#             )
+#         )
+
+#         assert render_mode is None or render_mode in self.metadata["render_modes"]
+#         self.render_mode = render_mode
+
+#     def _get_units(self):
+#         """
+#         Define a function to create a random matrix such that the sum of the elements in a row = 0
+#         """
+#         # while True:
+#         #     random_matrix = np.random.randint(-1, 2, size=(self.size, self.num_states-1))  # Generate a random matrix
+#         #     row_sums = np.sum(random_matrix, axis=1)  # Ensure the row sum is 0
+#         #     if np.all(row_sums == 0):  # If row sum is 0, assign the matrix to _action_unit
+#         #         self._action_unit.low[:, :-1] = random_matrix
+#         #         self._action_unit.high[:, :-1] = random_matrix
+#         #         break
+#         array_set = [
+#             getattr(Transitions, attr)
+#             for attr in dir(Transitions)
+#             if not attr.startswith("__")
+#         ]
+#         self._action_unit = np.array(
+#             [array_set[np.random.randint(0, len(array_set))] for _ in range(self.size)]
+#         )
 
 
-class Transitions:
-    trans_0 = np.array([-1, 1, 0, 0, 0])  # N -> L0
-    trans_1 = np.array([1, -1, 0, 0, 0])  # L0 -> N
-    trans_2 = np.array([0, -1, 1, 0, 0])  # L0 -> L1
-    trans_3 = np.array([0, 1, -1, 0, 0])  # L1 -> L0
-    trans_4 = np.array([0, 0, -1, 1, 0])  # L1 -> L2
-    trans_5 = np.array([0, 0, 1, -1, 0])  # L2 -> L1
-    trans_6 = np.array([1, -1, -1, 1, 0])  # L0 -> N and L1 -> L2
-    trans_7 = np.array([-1, 1, 1, -1, 0])  # N -> L0 and L2 -> L1
-    trans_8 = np.array([1, -1, 1, -1, 0])  # L0 -> N and L2 -> L1
-    trans_9 = np.array([-1, 1, -1, 1, 0])  # N -> L0 and L1 -> L2
+# # Example usage:
+# env = ServerlessEnv()
+# result_matrix = env._action_unit
+# print(result_matrix)
+
+# # Example 4x1 matrix
+# matrix_4x1 = np.array([[5], [2], [7], [3]])  # Replace this with your matrix
+
+# # Get elements and sort them
+# sorted_elements = np.sort(matrix_4x1, axis=0)  # Sort the elements along the columns
+
+# # Create a new 4x1 matrix with the sorted elements
+# new_sorted_matrix = sorted_elements
+
+# print("\nNew 4x1 matrix with sorted elements:")
+# print(new_sorted_matrix - 1)
+
+# for i in range(4):
+#     print(new_sorted_matrix[i])
+
+# import numpy as np
+# from gym import spaces
+
+
+# class Transitions:
+#     trans_0 = np.array([-1, 1, 0, 0, 0])  # N -> L0
+#     trans_1 = np.array([1, -1, 0, 0, 0])  # L0 -> N
+#     trans_2 = np.array([0, -1, 1, 0, 0])  # L0 -> L1
+#     trans_3 = np.array([0, 1, -1, 0, 0])  # L1 -> L0
+#     trans_4 = np.array([0, 0, -1, 1, 0])  # L1 -> L2
+#     trans_5 = np.array([0, 0, 1, -1, 0])  # L2 -> L1
+#     trans_6 = np.array([1, -1, -1, 1, 0])  # L0 -> N and L1 -> L2
+#     trans_7 = np.array([-1, 1, 1, -1, 0])  # N -> L0 and L2 -> L1
+#     trans_8 = np.array([1, -1, 1, -1, 0])  # L0 -> N and L2 -> L1
+#     trans_9 = np.array([-1, 1, -1, 1, 0])  # N -> L0 and L1 -> L2
 
 
 # class CustomEnvironment:
@@ -455,162 +455,163 @@ class Transitions:
 # plt.ylabel('Number of events')
 # plt.show()
 
-import numpy as np
-import matplotlib.pyplot as plt
+# import numpy as np
+# import matplotlib.pyplot as plt
 
-'''
-Hàm generate_poisson_events() mô phỏng quy trình Poisson bằng cách 
-tạo các sự kiện với tốc độ trung bình (rate) nhất định trong một khoảng thời gian xác định (time_duration).
-'''
-def generate_poisson_events(rate, time_duration):
-    # Tính tổng số sự kiện bằng phân phối Poisson
-    num_events = np.random.poisson(rate * time_duration)
+# '''
+# Hàm generate_poisson_events() mô phỏng quy trình Poisson bằng cách 
+# tạo các sự kiện với tốc độ trung bình (rate) nhất định trong một khoảng thời gian xác định (time_duration).
+# '''
+# def generate_poisson_events(rate, time_duration):
+#     # Tính tổng số sự kiện bằng phân phối Poisson
+#     num_events = np.random.poisson(rate * time_duration)
     
-    # Tạo ra thời gian đến giữa các sự kiện bằng phân phối mũ với giá trị trung bình là 1.0 / rate
-    inter_arrival_times = np.random.exponential(1.0 / rate, num_events)
+#     # Tạo ra thời gian đến giữa các sự kiện bằng phân phối mũ với giá trị trung bình là 1.0 / rate
+#     inter_arrival_times = np.random.exponential(1.0 / rate, num_events)
     
-    # Cộng dồn thời gian giữa các lần đến để có được thời gian đến của sự kiện
-    event_times = np.cumsum(inter_arrival_times)
+#     # Cộng dồn thời gian giữa các lần đến để có được thời gian đến của sự kiện
+#     event_times = np.cumsum(inter_arrival_times)
     
-    # Trả về số lượng sự kiện, thời gian sự kiện và thời gian giữa các lần đến tương ứng
-    print(num_events, event_times, inter_arrival_times)
-    return num_events, event_times, inter_arrival_times
+#     # Trả về số lượng sự kiện, thời gian sự kiện và thời gian giữa các lần đến tương ứng
+#     print(num_events, event_times, inter_arrival_times)
+#     return num_events, event_times, inter_arrival_times
 
-def plot_non_sequential_poisson(num_events, event_times, inter_arrival_times, rate, time_duration):
-    fig, axs = plt.subplots(1, 2, figsize=(15, 6))
-    fig.suptitle(f'Poisson Process Simulation (λ = {rate}, Duration = {time_duration} seconds)\n', fontsize=16)
+# def plot_non_sequential_poisson(num_events, event_times, inter_arrival_times, rate, time_duration):
+#     fig, axs = plt.subplots(1, 2, figsize=(15, 6))
+#     fig.suptitle(f'Poisson Process Simulation (λ = {rate}, Duration = {time_duration} seconds)\n', fontsize=16)
 
-    axs[0].step(event_times, np.arange(1, num_events + 1), where='post', color='blue')
-    axs[0].set_xlabel('Time')
-    axs[0].set_ylabel('Event Number')
-    axs[0].set_title(f'Poisson Process Event Times\nTotal: {num_events} events\n')
-    axs[0].grid(True)
+#     axs[0].step(event_times, np.arange(1, num_events + 1), where='post', color='blue')
+#     axs[0].set_xlabel('Time')
+#     axs[0].set_ylabel('Event Number')
+#     axs[0].set_title(f'Poisson Process Event Times\nTotal: {num_events} events\n')
+#     axs[0].grid(True)
 
-    axs[1].hist(inter_arrival_times, bins=20, color='green', alpha=0.5)
-    axs[1].set_xlabel('Inter-Arrival Time')
-    axs[1].set_ylabel('Frequency')
-    axs[1].set_title(f'Histogram of Inter-Arrival Times\nMEAN: {np.mean(inter_arrival_times):.2f} | STD: {np.std(inter_arrival_times):.2f}\n')
-    axs[1].grid(True, alpha=0.5)
+#     axs[1].hist(inter_arrival_times, bins=20, color='green', alpha=0.5)
+#     axs[1].set_xlabel('Inter-Arrival Time')
+#     axs[1].set_ylabel('Frequency')
+#     axs[1].set_title(f'Histogram of Inter-Arrival Times\nMEAN: {np.mean(inter_arrival_times):.2f} | STD: {np.std(inter_arrival_times):.2f}\n')
+#     axs[1].grid(True, alpha=0.5)
     
-    plt.tight_layout()
-    plt.show()
+#     plt.tight_layout()
+#     plt.show()
 
-def plot_sequential_poisson(num_events_list, event_times_list, inter_arrival_times_list, rate, time_duration):
-    fig, axs = plt.subplots(1, 2, figsize=(15, 6))
-    fig.suptitle(f'Poisson Process Simulation (Duration = {time_duration} seconds)\n', fontsize=16)
+# def plot_sequential_poisson(num_events_list, event_times_list, inter_arrival_times_list, rate, time_duration):
+#     fig, axs = plt.subplots(1, 2, figsize=(15, 6))
+#     fig.suptitle(f'Poisson Process Simulation (Duration = {time_duration} seconds)\n', fontsize=16)
 
-    axs[0].set_xlabel('Time')
-    axs[0].set_ylabel('Event Number')
-    axs[0].set_title(f'Poisson Process Event Times')
-    axs[0].grid(True)
+#     axs[0].set_xlabel('Time')
+#     axs[0].set_ylabel('Event Number')
+#     axs[0].set_title(f'Poisson Process Event Times')
+#     axs[0].grid(True)
 
-    axs[1].set_xlabel('Inter-Arrival Time')
-    axs[1].set_ylabel('Frequency')
-    axs[1].set_title(f'Histogram of Inter-Arrival Times')
-    axs[1].grid(True, alpha=0.5)
+#     axs[1].set_xlabel('Inter-Arrival Time')
+#     axs[1].set_ylabel('Frequency')
+#     axs[1].set_title(f'Histogram of Inter-Arrival Times')
+#     axs[1].grid(True, alpha=0.5)
 
-    color_palette = plt.get_cmap('tab20')
-    colors = [color_palette(i) for i in range(len(rate))]
+#     color_palette = plt.get_cmap('tab20')
+#     colors = [color_palette(i) for i in range(len(rate))]
 
-    for n, individual_rate in enumerate(rate):
-        num_events = num_events_list[n]
-        event_times = event_times_list[n]
-        inter_arrival_times = inter_arrival_times_list[n]
+#     for n, individual_rate in enumerate(rate):
+#         num_events = num_events_list[n]
+#         event_times = event_times_list[n]
+#         inter_arrival_times = inter_arrival_times_list[n]
 
-        axs[0].step(event_times, np.arange(1, num_events + 1), where='post', color=colors[n], label=f'λ = {individual_rate}, Total Events: {num_events}')
-        axs[1].hist(inter_arrival_times, bins=20, color=colors[n], alpha=0.5, label=f'λ = {individual_rate}, MEAN: {np.mean(inter_arrival_times):.2f}, STD: {np.std(inter_arrival_times):.2f}')
+#         axs[0].step(event_times, np.arange(1, num_events + 1), where='post', color=colors[n], label=f'λ = {individual_rate}, Total Events: {num_events}')
+#         axs[1].hist(inter_arrival_times, bins=20, color=colors[n], alpha=0.5, label=f'λ = {individual_rate}, MEAN: {np.mean(inter_arrival_times):.2f}, STD: {np.std(inter_arrival_times):.2f}')
 
-    axs[0].legend()
-    axs[1].legend()
+#     axs[0].legend()
+#     axs[1].legend()
 
-    plt.tight_layout()
-    plt.show()
+#     plt.tight_layout()
+#     plt.show()
 
-def poisson_simulation(rate, time_duration, show_visualization=True):
-    if isinstance(rate, int):
-        num_events, event_times, inter_arrival_times = generate_poisson_events(rate, time_duration)
+# def poisson_simulation(rate, time_duration, show_visualization=True):
+#     if isinstance(rate, int):
+#         num_events, event_times, inter_arrival_times = generate_poisson_events(rate, time_duration)
         
-        if show_visualization:
-            plot_non_sequential_poisson(num_events, event_times, inter_arrival_times, rate, time_duration)
-        else:
-            return num_events, event_times, inter_arrival_times
+#         if show_visualization:
+#             plot_non_sequential_poisson(num_events, event_times, inter_arrival_times, rate, time_duration)
+#         else:
+#             return num_events, event_times, inter_arrival_times
 
-    elif isinstance(rate, list):
-        num_events_list = []
-        event_times_list = []
-        inter_arrival_times_list = []
+#     elif isinstance(rate, list):
+#         num_events_list = []
+#         event_times_list = []
+#         inter_arrival_times_list = []
 
-        for individual_rate in rate:
-            num_events, event_times, inter_arrival_times = generate_poisson_events(individual_rate, time_duration)
-            num_events_list.append(num_events)
-            event_times_list.append(event_times)
-            inter_arrival_times_list.append(inter_arrival_times)
+#         for individual_rate in rate:
+#             num_events, event_times, inter_arrival_times = generate_poisson_events(individual_rate, time_duration)
+#             num_events_list.append(num_events)
+#             event_times_list.append(event_times)
+#             inter_arrival_times_list.append(inter_arrival_times)
 
-        if show_visualization:
-            plot_sequential_poisson(num_events_list, event_times_list, inter_arrival_times_list, rate, time_duration)
-        else:
-            return num_events_list, event_times_list, inter_arrival_times_list
+#         if show_visualization:
+#             plot_sequential_poisson(num_events_list, event_times_list, inter_arrival_times_list, rate, time_duration)
+#         else:
+#             return num_events_list, event_times_list, inter_arrival_times_list
 
-# Example usage
-# poisson_simulation(rate=1, time_duration=3600) # For single lambda rate (non-sequential)
-# poisson_simulation(rate=[2, 4, 6, 10], time_duration=10) # For multiple lambda rate (sequential)
+# # Example usage
+# # poisson_simulation(rate=1, time_duration=3600) # For single lambda rate (non-sequential)
+# # poisson_simulation(rate=[2, 4, 6, 10], time_duration=10) # For multiple lambda rate (sequential)
 
-import numpy as np
-import time
+# import numpy as np
+# import time
 
-def add_to_B_after_delay(A, B):
-    # Flatten A to find the unique elements and sort them
-    unique_elements = np.unique(A)
-    sorted_elements = np.sort(unique_elements)
+# def add_to_B_after_delay(A, B):
+#     # Flatten A to find the unique elements and sort them
+#     unique_elements = np.unique(A)
+#     sorted_elements = np.sort(unique_elements)
     
-    # Iterate through each element in sorted order
-    for i in range (0, len(sorted_elements)):
-        # Find the indices where the element occurs in A
-        indices = np.where(A == sorted_elements[i])
+#     # Iterate through each element in sorted order
+#     for i in range (0, len(sorted_elements)):
+#         # Find the indices where the element occurs in A
+#         indices = np.where(A == sorted_elements[i])
         
-        # Wait for the delay before adding to B
-        delay = sorted_elements[i] - sorted_elements[i-1] if i != 0 else 0
-        time.sleep(delay)
+#         # Wait for the delay before adding to B
+#         delay = sorted_elements[i] - sorted_elements[i-1] if i != 0 else 0
+#         time.sleep(delay)
         
-        # Add 1 unit to the corresponding rows of B
-        for idx in indices[0]:
-            B[idx] += 1
+#         # Add 1 unit to the corresponding rows of B
+#         for idx in indices[0]:
+#             B[idx] += 1
         
-        print(f"After {delay} seconds: B =\n{B}\n")
+#         print(f"After {delay} seconds: B =\n{B}\n")
 
-# Define matrices A and B
-A = np.array([[1, 2, 3, 4, 5, 6], [1.1, 1.8, 2.9, 4.1, 5.2, 5.9]])
-B = np.array([[0], [0]])
+# # Define matrices A and B
+# A = np.array([[1, 2, 3, 4, 5, 6], [1.1, 1.8, 2.9, 4.1, 5.2, 5.9]])
+# B = np.array([[0], [0]])
 
-# Perform the task
-add_to_B_after_delay(A, B)
+# # Perform the task
+# add_to_B_after_delay(A, B)
 
-# Example array
-arr = np.array([1, 0, 2, 0, 3, 0, 4, 0, 5])
+# # Example array
+# arr = np.array([1, 0, 2, 0, 3, 0, 4, 0, 5])
 
-# Delete zero elements
-non_zero_elements = arr[arr != 0]
+# # Delete zero elements
+# non_zero_elements = arr[arr != 0]
 
-print("Array after deleting zero elements:", non_zero_elements)
+# print("Array after deleting zero elements:", non_zero_elements)
 
-# Import data to a matrix
-n = 4
-rate = 1
-time_duration = 10
-incoming_matrix = np.zeros((n, 10))
+# # Import data to a matrix
+# n = 4
+# rate = 1
+# time_duration = 10
+# incoming_matrix = np.zeros((n, 10))
 
-for i in range(n):
-    num_events, event_times, inter_arrival_times = generate_poisson_events(rate=rate, time_duration=time_duration)
-    if (num_events > 10):
-        temp_matrix = np.zeros((n, num_events))
-        row_index = 0
-        col_index = 0
-        temp_matrix[row_index:row_index + incoming_matrix.shape[0], col_index:col_index + incoming_matrix.shape[1]] = incoming_matrix
-        incoming_matrix = temp_matrix
+# for i in range(n):
+#     num_events, event_times, inter_arrival_times = generate_poisson_events(rate=rate, time_duration=time_duration)
+#     if (num_events > 10):
+#         temp_matrix = np.zeros((n, num_events))
+#         row_index = 0
+#         col_index = 0
+#         temp_matrix[row_index:row_index + incoming_matrix.shape[0], col_index:col_index + incoming_matrix.shape[1]] = incoming_matrix
+#         incoming_matrix = temp_matrix
    
-    incoming_matrix[i, :num_events] = inter_arrival_times
+#     incoming_matrix[i, :num_events] = inter_arrival_times
 
-print("Incoming requests:")    
-print(incoming_matrix)
+# print("Incoming requests:")    
+# print(incoming_matrix)
 
-num_events, event_times, inter_arrival_times = generate_poisson_events(rate=640/3600, time_duration=86400)
+# num_events, event_times, inter_arrival_times = generate_poisson_events(rate=640/3600, time_duration=86400)
+
