@@ -98,7 +98,7 @@ class Poisson():
             
 # Example usage
 if __name__ == "__main__":
-    psim_example = Poisson(rate=1, time_duration=10)
+    psim_example = Poisson(rate=640/3600, time_duration=86400)
     num_events, event_times, inter_arrival_times = psim_example.generate_poisson_events()
     print(num_events)
     print(event_times[1])
