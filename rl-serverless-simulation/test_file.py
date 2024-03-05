@@ -473,6 +473,7 @@ def generate_poisson_events(rate, time_duration):
     event_times = np.cumsum(inter_arrival_times)
     
     # Trả về số lượng sự kiện, thời gian sự kiện và thời gian giữa các lần đến tương ứng
+    print(num_events, event_times, inter_arrival_times)
     return num_events, event_times, inter_arrival_times
 
 def plot_non_sequential_poisson(num_events, event_times, inter_arrival_times, rate, time_duration):
@@ -551,7 +552,65 @@ def poisson_simulation(rate, time_duration, show_visualization=True):
             return num_events_list, event_times_list, inter_arrival_times_list
 
 # Example usage
-poisson_simulation(rate=1, time_duration=3600) # For single lambda rate (non-sequential)
+# poisson_simulation(rate=1, time_duration=3600) # For single lambda rate (non-sequential)
 # poisson_simulation(rate=[2, 4, 6, 10], time_duration=10) # For multiple lambda rate (sequential)
 
+import numpy as np
+import time
 
+def add_to_B_after_delay(A, B):
+    # Flatten A to find the unique elements and sort them
+    unique_elements = np.unique(A)
+    sorted_elements = np.sort(unique_elements)
+    
+    # Iterate through each element in sorted order
+    for i in range (0, len(sorted_elements)):
+        # Find the indices where the element occurs in A
+        indices = np.where(A == sorted_elements[i])
+        
+        # Wait for the delay before adding to B
+        delay = sorted_elements[i] - sorted_elements[i-1] if i != 0 else 0
+        time.sleep(delay)
+        
+        # Add 1 unit to the corresponding rows of B
+        for idx in indices[0]:
+            B[idx] += 1
+        
+        print(f"After {delay} seconds: B =\n{B}\n")
+
+# Define matrices A and B
+A = np.array([[1, 2, 3, 4, 5, 6], [1.1, 1.8, 2.9, 4.1, 5.2, 5.9]])
+B = np.array([[0], [0]])
+
+# Perform the task
+add_to_B_after_delay(A, B)
+
+# Example array
+arr = np.array([1, 0, 2, 0, 3, 0, 4, 0, 5])
+
+# Delete zero elements
+non_zero_elements = arr[arr != 0]
+
+print("Array after deleting zero elements:", non_zero_elements)
+
+# Import data to a matrix
+n = 4
+rate = 1
+time_duration = 10
+incoming_matrix = np.zeros((n, 10))
+
+for i in range(n):
+    num_events, event_times, inter_arrival_times = generate_poisson_events(rate=rate, time_duration=time_duration)
+    if (num_events > 10):
+        temp_matrix = np.zeros((n, num_events))
+        row_index = 0
+        col_index = 0
+        temp_matrix[row_index:row_index + incoming_matrix.shape[0], col_index:col_index + incoming_matrix.shape[1]] = incoming_matrix
+        incoming_matrix = temp_matrix
+   
+    incoming_matrix[i, :num_events] = inter_arrival_times
+
+print("Incoming requests:")    
+print(incoming_matrix)
+
+num_events, event_times, inter_arrival_times = generate_poisson_events(rate=640/3600, time_duration=86400)

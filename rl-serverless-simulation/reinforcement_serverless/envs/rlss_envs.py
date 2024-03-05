@@ -68,15 +68,15 @@ class ServerlessEnv(gym.Env):
         self.timeout = 10  # Set timeout value = 10s
         self.container_lifetime = 86400  # Set lifetime of a container = 1 day
         self.limited_ram = 64  # Set limited amount of RAM (server) = 64GB
-        self.limited_request = 1280  # Set the limit number of requests that can exist in the system = 1280
-        self.average_request = 640  # Set the average incoming requests per hour = 640
+        self.limited_requests = 1280  # Set the limit number of requests that can exist in the system = 1280
+        self.average_requests = 640  # Set the average incoming requests per hour = 640
 
         '''
         Define observations (state space)
         '''
         self.observation_space = spaces.Dict({
             "execution_times":   spaces.Box(low=1, high=10, shape=(self.size, 1), dtype=np.int16),
-            "request_quantity":  spaces.Box(low=0, high=self.limited_request, shape=(self.size, 1), dtype=np.int16),
+            "request_quantity":  spaces.Box(low=0, high=self.limited_requests, shape=(self.size, 1), dtype=np.int16),
             "remained_resource": spaces.Box(low=0, high=self.limited_ram, shape=(self.num_resources, 1), dtype=np.int16),
             "container_traffic": spaces.Box(low=0, high=self.max_container, shape=(self.size, self.num_states), dtype=np.int16),
         })
@@ -108,7 +108,7 @@ class ServerlessEnv(gym.Env):
         self._ram_required_matrix = np.array([0, 0, 0, 0.9, 2])  # Set the required RAM each state
         self._action_matrix = np.zeros((self.size, self.num_states), dtype=np.int16)  # Set an initial value
         self._exectime_matrix = np.random.randint(2, 16, size=(self.size, 1))
-        self._request_matrix = np.zeros((self.size, 1), dtype=np.int16)
+        self._request_matrix = np.zeros((self.size, 1), dtype=np.int32)
         self._resource_matrix = np.ones((self.num_resources, 1), dtype=np.int16)
         self._resource_matrix[0, 0] = self.limited_ram
         self._container_matrix = np.hstack((
@@ -185,8 +185,33 @@ class ServerlessEnv(gym.Env):
         '''
         Define a function that receives an amount of incoming requests every Δt based on Poisson distribution
         '''
+        request_per_day = self.average_requests * 24
+        requests_per_second = self.average_requests / 3600
+        time_duration =  self.container_lifetime
+        poisson_requests = Poisson(rate=requests_per_second, time_duration=time_duration)
+        incoming_request_times = np.zeros((self.size, request_per_day))
+        
+        for i in range(self.size):
+            num_events, event_times, inter_arrival_times = poisson_requests.generate_poisson_events()
+            if (num_events > request_per_day):
+                temp_matrix = np.zeros((self.size, num_events))
+                row_index = 0
+                col_index = 0
+                temp_matrix[row_index:row_index + incoming_request_times.shape[0], col_index:col_index + incoming_request_times.shape[1]] = incoming_request_times
+                incoming_request_times = temp_matrix
+            
+            incoming_request_times[i, :num_events] = event_times
+        
         while(True):
-            pass
+            unique_elements = np.unique(incoming_request_times)
+            sorted_elements = np.sort(unique_elements)
+            incoming_timeline = sorted_elements[sorted_elements != 0]
+
+            for i in range (0, len(incoming_timeline)):
+                indices = np.where(incoming_request_times == incoming_timeline[i])  # Find the indices where the element occurs in incoming_request_times
+                time.sleep(incoming_timeline[i] - incoming_timeline[i-1] if i != 0 else 0)  # Wait for the delay before adding to _request_matrix
+                for idx in indices[0]:
+                    self._request_matrix[idx] += 1
         
     def _get_pending(self):
         '''
@@ -287,7 +312,7 @@ class ServerlessEnv(gym.Env):
         self.current_time = 0  # Start at time 0
         self._pending_request = np.zeros((self.size, 1), dtype=np.int16)  # Set an initial value
         self._exectime_matrix = np.random.randint(2, 16, size=(self.size, 1))
-        self._request_matrix = np.zeros((self.size, 1), dtype=np.int16)
+        self._request_matrix = np.zeros((self.size, 1), dtype=np.int32)
         self._resource_matrix = np.ones((self.num_resources, 1), dtype=np.int16)
         self._resource_matrix[0, 0] = self.limited_ram
         self._container_matrix = np.hstack((
